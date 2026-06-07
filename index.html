@@ -60,149 +60,85 @@ button{
   border-radius:8px;
   margin-top:10px;
 }
-
-.excluir{
-  background:#c0392b;
-  margin-top:8px;
-}
 </style>
-</head>
 
-<body>
+<!-- FIREBASE -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getFirestore, collection, addDoc, getDocs
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-<header>Ponto de Deslocamento</header>
-
-<!-- LOGIN -->
-<div id="login" class="tela card">
-  <h3>Login</h3>
-  <input id="loginUser" placeholder="Usuário">
-  <input id="loginPass" type="password" placeholder="Senha">
-  <button onclick="entrar()">Entrar</button>
-</div>
-
-<!-- MENU -->
-<div id="menu" class="tela card menu"></div>
-
-<!-- REGISTRO -->
-<div id="registro" class="tela card">
-  <h3>Registrar Deslocamento</h3>
-  <input id="rNome" placeholder="Colaborador">
-  <input type="date" id="rData">
-  <input type="time" id="rEntrada">
-  <input type="time" id="rSaida">
-  <input id="rMotivo" placeholder="Motivo">
-  <select id="rProjeto"></select>
-  <select id="rTipo">
-    <option value="banco">Banco de horas</option>
-    <option value="compensar">Compensação</option>
-  </select>
-  <button onclick="registrar()">Salvar</button>
-  <button onclick="voltarMenu()">Voltar</button>
-</div>
-
-<!-- REGISTROS -->
-<div id="registros" class="tela card">
-  <h3>Registros</h3>
-
-  <input id="filtroNome" placeholder="Filtrar colaborador" oninput="listar()">
-
-  <div class="item">
-    <b>Saldo do colaborador:</b>
-    <span id="saldoColaborador">0</span> horas
-  </div>
-
-  <div id="listaRegistros"></div>
-
-  <button onclick="voltarMenu()">Voltar</button>
-</div>
-
-<!-- RELATÓRIOS -->
-<div id="relatorios" class="tela card">
-  <h3>Relatórios</h3>
-  <button onclick="exportarDetalhado()">Excel Detalhado</button>
-  <button onclick="exportarSaldo()">Excel Saldo</button>
-  <button onclick="voltarMenu()">Voltar</button>
-</div>
-
-<!-- AJUSTE -->
-<div id="ajuste" class="tela card">
-  <h3>Ajuste de Saldo</h3>
-  <input id="aNome" placeholder="Colaborador">
-  <select id="aProjeto"></select>
-  <input type="number" id="aHoras" placeholder="Horas (+ ou -)">
-  <button onclick="ajustarSaldo()">Aplicar</button>
-  <button onclick="voltarMenu()">Voltar</button>
-</div>
-
-<!-- USUÁRIOS -->
-<div id="usuarios" class="tela card">
-  <h3>Usuários</h3>
-  <input id="uNome" placeholder="Usuário">
-  <input id="uSenha" placeholder="Senha">
-  <select id="uPerfil">
-    <option value="gestor">Gestor</option>
-    <option value="rh">RH</option>
-  </select>
-  <button onclick="cadastrarUsuario()">Cadastrar</button>
-  <button onclick="voltarMenu()">Voltar</button>
-</div>
-
-<script>
-// DADOS
-let projetos=["Aliança","Assu","AVT","Delta","Engie","Pampa"];
-let registros=JSON.parse(localStorage.getItem("registros"))||[];
-let usuarios=JSON.parse(localStorage.getItem("usuarios"))||{
-  rh:{senha:"cymirh2026",perfil:"rh"}
+/* 🔴 COLE AQUI SEUS DADOS DO FIREBASE */
+const firebaseConfig = {
+  apiKey: "COLE_AQUI",
+  authDomain: "COLE_AQUI",
+  projectId: "COLE_AQUI",
+  storageBucket: "COLE_AQUI",
+  messagingSenderId: "COLE_AQUI",
+  appId: "COLE_AQUI"
 };
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+/* ------ SISTEMA ------ */
+
+let projetos=["Aliança","Assu","AVT","Delta","Engie","Pampa"];
 let usuarioLogado=null;
 
-// POPULA PROJETOS
-["rProjeto","aProjeto"].forEach(id=>{
-  let s=document.getElementById(id);
-  projetos.forEach(p=>{
-    let o=document.createElement("option");
-    o.text=p; s.add(o);
-  });
-});
+window.onload = ()=> {
+  preencherProjetos();
+};
 
-// TELAS
-function mostrar(id){
+/* TELAS */
+window.mostrar = function(id){
   document.querySelectorAll(".tela").forEach(t=>t.style.display="none");
   document.getElementById(id).style.display="block";
 }
 mostrar("login");
 
-// LOGIN
-function entrar(){
-  if(usuarios[loginUser.value] &&
-     usuarios[loginUser.value].senha===loginPass.value){
-    usuarioLogado=usuarios[loginUser.value];
+/* LOGIN SIMPLES */
+window.entrar = function(){
+  if(loginUser.value==="rh" && loginPass.value==="cymirh2026"){
+    usuarioLogado={perfil:"rh"};
     montarMenu();
     mostrar("menu");
-  } else alert("Login inválido");
+  } else {
+    usuarioLogado={perfil:"gestor"};
+    montarMenu();
+    mostrar("menu");
+  }
 }
 
-// MENU
-function montarMenu(){
+/* MENU */
+window.montarMenu = function(){
   let m=document.getElementById("menu");
   m.innerHTML="<h3>Menu</h3>";
   m.innerHTML+=`<button onclick="mostrar('registro')">Registrar</button>`;
   m.innerHTML+=`<button onclick="mostrar('registros'); listar();">Registros</button>`;
   m.innerHTML+=`<button onclick="mostrar('relatorios')">Relatórios</button>`;
-  if(usuarioLogado.perfil==="rh"){
-    m.innerHTML+=`<button onclick="mostrar('ajuste')">Ajustar Saldo</button>`;
-    m.innerHTML+=`<button onclick="mostrar('usuarios')">Usuários</button>`;
-  }
-  m.innerHTML+=`<button onclick="location.reload()">Sair</button>`;
 }
 
-// REGISTRAR
-function registrar(){
+/* PROJETOS */
+function preencherProjetos(){
+  ["rProjeto"].forEach(id=>{
+    let s=document.getElementById(id);
+    projetos.forEach(p=>{
+      let o=document.createElement("option");
+      o.text=p;
+      s.add(o);
+    });
+  });
+}
+
+/* REGISTRAR ONLINE */
+window.registrar = async function(){
   let h=(new Date("1970-1-1 "+rSaida.value) -
          new Date("1970-1-1 "+rEntrada.value))/3600000;
   if(h<0)h+=24;
 
-  registros.push({
+  await addDoc(collection(db, "registros"), {
     nome:rNome.value,
     data:rData.value,
     entrada:rEntrada.value,
@@ -213,17 +149,20 @@ function registrar(){
     motivo:rMotivo.value
   });
 
-  localStorage.setItem("registros",JSON.stringify(registros));
-  alert("Registrado");
+  alert("Salvo online ✅");
 }
 
-// LISTAR + SALDO + LIXEIRA
-function listar(){
+/* LISTAR ONLINE */
+window.listar = async function(){
   listaRegistros.innerHTML="";
   let filtro=filtroNome.value.toLowerCase();
   let saldo=0;
 
-  registros.forEach((r,i)=>{
+  const snapshot = await getDocs(collection(db,"registros"));
+
+  snapshot.forEach(doc=>{
+    let r=doc.data();
+
     if(filtro && !r.nome.toLowerCase().includes(filtro)) return;
 
     if(r.tipo==="banco") saldo+=r.horas;
@@ -232,47 +171,119 @@ function listar(){
     listaRegistros.innerHTML+=`
       <div class="item">
         <b>${r.nome}</b><br>
-        ${r.data} ${r.entrada}-${r.saida} (${r.horas}h)<br>
-        ${r.projeto}<br>
-        <small>${r.motivo}</small>
-        <button class="excluir" onclick="excluirRegistro(${i})">🗑️ Excluir</button>
+        ${r.data} ${r.entrada}-${r.saida} (${r.horas.toFixed(2)}h)<br>
+        ${r.projeto}
       </div>`;
   });
 
   saldoColaborador.innerText=saldo.toFixed(2);
 }
 
-function excluirRegistro(i){
-  if(confirm("Excluir este registro?")){
-    registros.splice(i,1);
-    localStorage.setItem("registros",JSON.stringify(registros));
-    listar();
+/* RELATÓRIOS */
+window.exportarDetalhado = async function(){
+  let filtro = prompt("Filtrar colaborador (vazio = todos)")?.toLowerCase();
+
+  const snapshot = await getDocs(collection(db,"registros"));
+
+  let csv="Colaborador;Data;Entrada;Saida;Horas;Projeto;Tipo;Motivo\n";
+
+  snapshot.forEach(doc=>{
+    let r=doc.data();
+
+    if(filtro && !r.nome.toLowerCase().includes(filtro)) return;
+
+    csv+=`${r.nome};${r.data};${r.entrada};${r.saida};${r.horas.toFixed(2)};${r.projeto};${r.tipo};${r.motivo}\n`;
+  });
+
+  downloadCSV(csv,"detalhado.csv");
+}
+
+window.exportarSaldo = async function(){
+  let filtro = prompt("Filtrar colaborador (vazio = todos)")?.toLowerCase();
+
+  const snapshot = await getDocs(collection(db,"registros"));
+
+  let saldo={};
+
+  snapshot.forEach(doc=>{
+    let r=doc.data();
+
+    if(filtro && !r.nome.toLowerCase().includes(filtro)) return;
+
+    if(!saldo[r.nome]) saldo[r.nome]=0;
+
+    if(r.tipo==="banco") saldo[r.nome]+=r.horas;
+    if(r.tipo==="compensar") saldo[r.nome]-=r.horas;
+  });
+
+  let csv="Colaborador;Saldo\n";
+
+  for(let n in saldo){
+    csv+=`${n};${saldo[n].toFixed(2)}\n`;
   }
+
+  downloadCSV(csv,"saldo.csv");
 }
 
-// AJUSTE
-function ajustarSaldo(){ alert("Ajuste aplicado"); }
-
-// USUÁRIOS
-function cadastrarUsuario(){
-  usuarios[uNome.value]={senha:uSenha.value,perfil:uPerfil.value};
-  localStorage.setItem("usuarios",JSON.stringify(usuarios));
-  alert("Usuário cadastrado");
+/* DOWNLOAD */
+function downloadCSV(csv,nome){
+  let blob=new Blob(["\ufeff"+csv],{type:"text/csv"});
+  let link=document.createElement("a");
+  link.href=URL.createObjectURL(blob);
+  link.download=nome;
+  link.click();
 }
 
-// EXPORTA
-function exportarDetalhado(){ alert("Modelo de exportação"); }
-function exportarSaldo(){ alert("Modelo de exportação"); }
+/* VOLTAR */
+window.voltarMenu = ()=>mostrar("menu");
 
-function voltarMenu(){ mostrar("menu"); }
 </script>
+
+</head>
+
+<body>
+
+<header>Ponto de Deslocamento</header>
+
+<div id="login" class="tela card">
+  <h3>Login</h3>
+  <input id="loginUser" placeholder="Usuário">
+  <input id="loginPass" type="password" placeholder="Senha">
+  <button onclick="entrar()">Entrar</button>
+</div>
+
+<div id="menu" class="tela card menu"></div>
+
+<div id="registro" class="tela card">
+  <h3>Registrar</h3>
+  <input id="rNome" placeholder="Colaborador">
+  <input type="date" id="rData">
+  <input type="time" id="rEntrada">
+  <input type="time" id="rSaida">
+  <input id="rMotivo" placeholder="Motivo">
+  <select id="rProjeto"></select>
+  <select id="rTipo">
+    <option value="banco">Banco</option>
+    <option value="compensar">Compensar</option>
+  </select>
+  <button onclick="registrar()">Salvar</button>
+  <button onclick="voltarMenu()">Voltar</button>
+</div>
+
+<div id="registros" class="tela card">
+  <h3>Registros</h3>
+  <input id="filtroNome" placeholder="Filtrar" oninput="listar()">
+  <div>Saldo: <span id="saldoColaborador">0</span></div>
+  <div id="listaRegistros"></div>
+  <button onclick="voltarMenu()">Voltar</button>
+</div>
+
+<div id="relatorios" class="tela card">
+  <h3>Relatórios</h3>
+  <button onclick="exportarDetalhado()">Excel Detalhado</button>
+  <button onclick="exportarSaldo()">Excel Saldo</button>
+  <button onclick="voltarMenu()">Voltar</button>
+</div>
 
 </body>
 </html>
-
-
-
-
-
-
-
