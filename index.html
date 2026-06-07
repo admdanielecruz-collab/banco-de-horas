@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Banco de Horas - Sistema</title>
+    <title>Banco de Horas Completo</title>
     <style>
         body{font-family:Arial;background:#eef2f5;margin:0}
         header{background:#239148;color:#fff;padding:15px;text-align:center}
@@ -10,105 +10,147 @@
         .card{background:#fff;padding:15px;border-radius:10px;margin-top:15px}
         input,select,button{width:100%;padding:10px;margin-top:8px;border-radius:8px;border:1px solid #ccc}
         button{background:#239148;color:#fff;border:none;cursor:pointer}
-        table{width:100%;border-collapse:collapse;margin-top:10px}
-        th,td{border:1px solid #ddd;padding:8px;text-align:left}
-        .excluir{background:red;width:auto;padding:5px}
+        .excluir{background:red;color:white;padding:5px}
+        table{width:100%;border-collapse:collapse;margin-top:15px}
+        th,td{border:1px solid #ccc;padding:8px;text-align:center}
     </style>
 </head>
 <body>
 
-<header>Banco de Horas</header>
-<div id="msg" style="text-align:center; padding:10px"></div>
+<header>Sistema Banco de Horas</header>
 
-<!-- Telas -->
+<!-- LOGIN -->
 <div id="login" class="tela" style="display:block">
     <div class="card">
-        <input id="loginUser" placeholder="Usuário">
-        <input id="loginPass" type="password" placeholder="Senha">
+        <h3>Login</h3>
+        <input id="uUser" placeholder="Usuário">
+        <input id="uPass" type="password" placeholder="Senha">
         <button id="btnEntrar">Entrar</button>
     </div>
 </div>
 
-<div id="menu" class="tela"></div>
-
-<div id="registros" class="tela card">
-    <h3>Registros</h3>
-    <input id="filtroNome" placeholder="Filtrar por nome...">
-    <div id="tabelaContainer"></div>
-    <button id="btnVoltarMenu">Voltar</button>
+<!-- MENU -->
+<div id="menu" class="tela">
+    <div class="card">
+        <h3>Menu</h3>
+        <button onclick="navegar('registro')">Registrar Horas</button>
+        <button onclick="navegar('registros')">Ver Registros (Tabela)</button>
+        <button onclick="navegar('relatorios')">Relatórios</button>
+        <button onclick="navegar('ajuste')">Ajustar Saldo</button>
+        <button onclick="navegar('usuarios')">Criar Usuário</button>
+        <button onclick="location.reload()">Sair</button>
+    </div>
 </div>
 
-<!-- Scripts -->
+<!-- REGISTRO -->
+<div id="registro" class="tela card">
+    <input id="rNome" placeholder="Nome Colaborador">
+    <input type="date" id="rData">
+    <input type="time" id="rEntrada">
+    <input type="time" id="rSaida">
+    <select id="rProjeto"></select>
+    <select id="rTipo"><option value="banco">Banco</option><option value="compensar">Compensar</option></select>
+    <button id="btnSalvar">Salvar Registro</button>
+    <button onclick="navegar('menu')">Voltar</button>
+</div>
+
+<!-- LISTAGEM -->
+<div id="registros" class="tela card">
+    <input id="filtroNome" placeholder="Filtrar por nome..." oninput="renderizarLista()">
+    <div>Saldo Total: <span id="saldoDisplay">0</span>h</div>
+    <div id="tabelaContainer"></div>
+    <button onclick="navegar('menu')">Voltar</button>
+</div>
+
+<!-- RELATORIOS E USUARIOS -->
+<div id="relatorios" class="tela card">
+    <button onclick="exportar(false)">Relatório Todos</button>
+    <button onclick="exportar(true)">Relatório por Colaborador</button>
+    <button onclick="navegar('menu')">Voltar</button>
+</div>
+<div id="ajuste" class="tela card">
+    <input id="aNome" placeholder="Nome">
+    <input id="aSaldo" type="number" placeholder="Horas (+/-)">
+    <button id="btnAjustar">Aplicar Ajuste</button>
+    <button onclick="navegar('menu')">Voltar</button>
+</div>
+<div id="usuarios" class="tela card">
+    <input id="uCriarNome" placeholder="Usuário">
+    <input id="uCriarSenha" placeholder="Senha">
+    <input id="uCriarProjetos" placeholder="Projetos (separados por vírgula)">
+    <button id="btnUser">Cadastrar</button>
+    <button onclick="navegar('menu')">Voltar</button>
+</div>
+
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-    const app = initializeApp({ /* SUAS CONFIGS AQUI */ });
-    const db = getFirestore(app);
+    const db = getFirestore(initializeApp({ /* SUAS CONFIGS AQUI */ }));
+    
+    // Variáveis Globais de estado
+    window.listaDados = [];
+    window.usuarioLogado = null;
 
-    // Estado Global
-    let currentUser = null;
-
-    // Vinculação de eventos
-    document.getElementById('btnEntrar').addEventListener('click', () => fazerLogin());
-    document.getElementById('btnVoltarMenu').addEventListener('click', () => mostrar('menu'));
-
-    async function fazerLogin() {
-        // Lógica simplificada de autenticação (Considere usar Firebase Auth para real segurança)
-        const user = document.getElementById('loginUser').value;
-        const snapshot = await getDocs(query(collection(db, "usuarios"), where("usuario", "==", user)));
-        
-        if (!snapshot.empty) {
-            currentUser = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
-            montarMenu();
-            mostrar('menu');
-        } else {
-            alert("Usuário não encontrado");
-        }
-    }
-
-    function montarMenu() {
-        const menu = document.getElementById('menu');
-        menu.innerHTML = `
-            <div class="card">
-                <h3>Bem-vindo, ${currentUser.usuario}</h3>
-                <button id="navRegistros">Registros</button>
-                <button id="navRelatorios">Relatórios</button>
-                <button onclick="location.reload()">Sair</button>
-            </div>
-        `;
-        document.getElementById('navRegistros').addEventListener('click', carregarRegistros);
-    }
-
-    async function carregarRegistros() {
-        mostrar('registros');
-        const container = document.getElementById('tabelaContainer');
-        
-        // Filtro por projeto (Acesso apenas ao projeto do perfil do usuário)
-        const q = query(collection(db, "registros"), where("projeto", "in", currentUser.projetos));
-        
-        onSnapshot(q, (snap) => {
-            let html = `<table><tr><th>Nome</th><th>Data</th><th>Horas</th><th>Ações</th></tr>`;
-            snap.forEach(doc => {
-                const r = doc.data();
-                html += `<tr><td>${r.nome}</td><td>${r.data}</td><td>${r.horas}</td>
-                         <td><button class="excluir" onclick="excluirRegistro('${doc.id}')">X</button></td></tr>`;
-            });
-            html += `</table>`;
-            container.innerHTML = html;
-        });
-    }
-
-    // Exportar para o escopo global para o onclick do HTML funcionar
-    window.excluirRegistro = async (id) => {
-        if(confirm("Excluir?")) await deleteDoc(doc(db, "registros", id));
+    // Navegação Global
+    window.navegar = (id) => {
+        document.querySelectorAll('.tela').forEach(t => t.style.display = 'none');
+        document.getElementById(id).style.display = 'block';
+        if(id === 'registros') renderizarLista();
     };
 
-    function mostrar(id) {
-        document.querySelectorAll(".tela").forEach(t => t.style.display = "none");
-        document.getElementById(id).style.display = "block";
-    }
-</script>
+    // Registrar Eventos
+    document.getElementById('btnEntrar').onclick = async () => {
+        const u = document.getElementById('uUser').value;
+        const s = document.getElementById('uPass').value;
+        // Simulação de autenticação
+        window.usuarioLogado = { nome: u, projetos: ["Aliança", "Assu"] }; 
+        navegar('menu');
+    };
 
+    document.getElementById('btnSalvar').onclick = async () => {
+        await addDoc(collection(db, "registros"), {
+            nome: document.getElementById('rNome').value,
+            data: document.getElementById('rData').value,
+            horas: 8, // Lógica simplificada
+            projeto: document.getElementById('rProjeto').value,
+            tipo: document.getElementById('rTipo').value
+        });
+        alert("Salvo!");
+    };
+
+    // Tabela e Filtro
+    window.renderizarLista = () => {
+        const filtro = document.getElementById('filtroNome').value.toLowerCase();
+        const container = document.getElementById('tabelaContainer');
+        let html = `<table><tr><th>Nome</th><th>Data</th><th>Tipo</th><th>Ação</th></tr>`;
+        
+        let saldo = 0;
+        // Filtra por projetos permitidos ao usuário
+        const filtrados = window.listaDados.filter(r => 
+            window.usuarioLogado.projetos.includes(r.projeto) && 
+            r.nome.toLowerCase().includes(filtro)
+        );
+
+        filtrados.forEach(r => {
+            html += `<tr><td>${r.nome}</td><td>${r.data}</td><td>${r.tipo}</td>
+                     <td><button class="excluir" onclick="del('${r.id}')">X</button></td></tr>`;
+            saldo += (r.tipo === 'banco' ? r.horas : -r.horas);
+        });
+        
+        container.innerHTML = html + `</table>`;
+        document.getElementById('saldoDisplay').innerText = saldo;
+    };
+
+    window.del = async (id) => {
+        await deleteDoc(doc(db, "registros", id));
+    };
+
+    // Carregar dados iniciais
+    onSnapshot(collection(db, "registros"), (snap) => {
+        window.listaDados = snap.docs.map(d => ({id: d.id, ...d.data()}));
+    });
+
+</script>
 </body>
 </html>
