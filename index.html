@@ -8,11 +8,34 @@
 <style>
 :root { --verde:#239148; }
 
-body{font-family:"Segoe UI",Arial;background:#eef2f5;margin:0;}
-header{background:var(--verde);color:#fff;padding:15px;text-align:center;font-weight:bold;}
+body{
+  font-family:"Segoe UI",Arial;
+  background:#eef2f5;
+  margin:0;
+}
 
-.tela{display:none;padding:15px;max-width:500px;margin:auto;}
-.card{background:#fff;padding:15px;border-radius:12px;margin-bottom:15px;box-shadow:0 4px 10px rgba(0,0,0,.1);}
+header{
+  background:var(--verde);
+  color:#fff;
+  padding:15px;
+  text-align:center;
+  font-weight:bold;
+}
+
+.tela{
+  display:none;
+  padding:15px;
+  max-width:500px;
+  margin:auto;
+}
+
+.card{
+  background:#fff;
+  padding:15px;
+  border-radius:12px;
+  margin-bottom:15px;
+  box-shadow:0 4px 10px rgba(0,0,0,.1);
+}
 
 input,select,button{
   width:100%;
@@ -22,9 +45,14 @@ input,select,button{
   border:1px solid #ccc;
 }
 
-button{background:var(--verde);color:#fff;border:none;}
-.menu button{margin-bottom:10px;}
-.excluir{background:#c0392b;}
+button{
+  background:var(--verde);
+  color:#fff;
+  border:none;
+}
+
+.menu button{ margin-bottom:10px; }
+.excluir{ background:#c0392b; }
 
 .item{
   background:#f7f7f7;
@@ -61,7 +89,6 @@ document.addEventListener("DOMContentLoaded", async ()=>{
 
   mostrar("login");
 
-  // projetos
   ["rProjeto","aProjeto"].forEach(id=>{
     let s=document.getElementById(id);
     if(s){
@@ -73,7 +100,6 @@ document.addEventListener("DOMContentLoaded", async ()=>{
     }
   });
 
-  // botões
   btnEntrar.onclick = entrar;
   btnSalvar.onclick = registrar;
 });
@@ -85,7 +111,7 @@ function mostrar(id){
 }
 window.mostrar = mostrar;
 
-/* ✅ LOGIN CORRIGIDO */
+/* ✅ LOGIN */
 async function entrar(){
 
   let user = loginUser.value.trim().toLowerCase();
@@ -137,12 +163,18 @@ function montarMenu(){
   menu.innerHTML+=`<button onclick="location.reload()">Sair</button>`;
 }
 
-/* REGISTRAR */
+/* ✅ REGISTRAR */
 async function registrar(){
   const { addDoc, collection } = window.fb;
 
+  if(!rNome.value || !rData.value || !rEntrada.value || !rSaida.value){
+    alert("Preencha todos os campos");
+    return;
+  }
+
   let h=(new Date("1970-1-1 "+rSaida.value) -
          new Date("1970-1-1 "+rEntrada.value))/3600000;
+
   if(h<0)h+=24;
 
   await addDoc(collection(db,"registros"),{
@@ -156,10 +188,17 @@ async function registrar(){
     motivo:rMotivo.value
   });
 
-  alert("Registrado ✅");
+  alert("Registro salvo ✅");
+
+  // limpar campos
+  rNome.value="";
+  rData.value="";
+  rEntrada.value="";
+  rSaida.value="";
+  rMotivo.value="";
 }
 
-/* LISTAR */
+/* ✅ LISTAR */
 async function listar(){
   const { getDocs, collection } = window.fb;
 
@@ -190,7 +229,7 @@ async function listar(){
   saldoColaborador.innerText=saldo.toFixed(2);
 }
 
-/* EXCLUIR */
+/* ✅ EXCLUIR */
 async function excluirRegistro(id){
   const { deleteDoc, doc } = window.fb;
 
@@ -200,11 +239,17 @@ async function excluirRegistro(id){
   }
 }
 
-/* AJUSTE */
+/* ✅ AJUSTE */
 async function ajustarSaldo(){
   const { addDoc, collection } = window.fb;
 
   let horas=parseFloat(aHoras.value);
+
+  if(!aNome.value || isNaN(horas)){
+    alert("Preencha corretamente");
+    return;
+  }
+
   let tipo=horas>=0?"banco":"compensar";
 
   await addDoc(collection(db,"registros"),{
@@ -221,9 +266,14 @@ async function ajustarSaldo(){
   alert("Ajuste aplicado ✅");
 }
 
-/* USUÁRIOS */
+/* ✅ USUÁRIOS */
 async function cadastrarUsuario(){
   const { addDoc, collection } = window.fb;
+
+  if(!uNome.value || !uSenha.value){
+    alert("Preencha os dados");
+    return;
+  }
 
   await addDoc(collection(db,"usuarios"),{
     usuario:uNome.value,
@@ -234,16 +284,22 @@ async function cadastrarUsuario(){
   alert("Usuário cadastrado ✅");
 }
 
-/* RELATÓRIOS */
+/* ✅ RELATÓRIOS COM FILTRO */
 async function exportarDetalhado(){
   const { getDocs, collection } = window.fb;
+
+  let filtro = prompt("Filtrar colaborador (vazio = todos)")?.toLowerCase();
+
   let csv="Colaborador;Data;Entrada;Saida;Horas;Projeto;Tipo;Motivo\n";
 
-  let snapshot=await getDocs(collection(db,"registros"));
+  let snapshot = await getDocs(collection(db,"registros"));
 
   snapshot.forEach(d=>{
     let r=d.data();
-    csv+=`${r.nome};${r.data};${r.entrada};${r.saida};${r.horas};${r.projeto};${r.tipo};${r.motivo}\n`;
+
+    if(filtro && !r.nome.toLowerCase().includes(filtro)) return;
+
+    csv+=`${r.nome};${r.data};${r.entrada};${r.saida};${r.horas.toFixed(2)};${r.projeto};${r.tipo};${r.motivo}\n`;
   });
 
   downloadCSV(csv,"detalhado.csv");
@@ -252,13 +308,18 @@ async function exportarDetalhado(){
 async function exportarSaldo(){
   const { getDocs, collection } = window.fb;
 
-  let snapshot=await getDocs(collection(db,"registros"));
+  let filtro = prompt("Filtrar colaborador (vazio = todos)")?.toLowerCase();
 
+  let snapshot=await getDocs(collection(db,"registros"));
   let saldo={};
 
   snapshot.forEach(d=>{
     let r=d.data();
+
+    if(filtro && !r.nome.toLowerCase().includes(filtro)) return;
+
     if(!saldo[r.nome]) saldo[r.nome]=0;
+
     if(r.tipo==="banco") saldo[r.nome]+=r.horas;
     if(r.tipo==="compensar") saldo[r.nome]-=r.horas;
   });
@@ -313,19 +374,22 @@ function downloadCSV(csv,nome){
 </div>
 
 <div id="registros" class="tela card">
-<input id="filtroNome" oninput="listar()">
-<div>Saldo: <span id="saldoColaborador">0</span></div>
+<h3>Registros</h3>
+<input id="filtroNome" placeholder="Filtrar colaborador" oninput="listar()">
+<div><b>Saldo:</b> <span id="saldoColaborador">0</span></div>
 <div id="listaRegistros"></div>
 <button onclick="mostrar('menu')">Voltar</button>
 </div>
 
 <div id="relatorios" class="tela card">
+<h3>Relatórios</h3>
 <button onclick="exportarDetalhado()">Excel Detalhado</button>
 <button onclick="exportarSaldo()">Excel Saldo</button>
 <button onclick="mostrar('menu')">Voltar</button>
 </div>
 
 <div id="ajuste" class="tela card">
+<h3>Ajuste de Saldo</h3>
 <input id="aNome">
 <select id="aProjeto"></select>
 <input type="number" id="aHoras">
@@ -334,6 +398,7 @@ function downloadCSV(csv,nome){
 </div>
 
 <div id="usuarios" class="tela card">
+<h3>Usuários</h3>
 <input id="uNome">
 <input id="uSenha">
 <select id="uPerfil">
