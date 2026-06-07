@@ -8,75 +8,44 @@
 <style>
 :root { --verde:#239148; }
 
-body{
-  font-family:"Segoe UI",Arial;
-  background:#eef2f5;
-  margin:0;
-}
+body{font-family:"Segoe UI",Arial;background:#eef2f5;margin:0;}
+header{background:var(--verde);color:#fff;padding:15px;text-align:center;font-weight:bold;}
 
-header{
-  background:var(--verde);
-  color:#fff;
-  padding:15px;
-  text-align:center;
-  font-weight:bold;
-}
-
-.tela{
-  display:none;
-  padding:15px;
-  max-width:500px;
-  margin:auto;
-}
-
-.card{
-  background:#fff;
-  padding:15px;
-  border-radius:12px;
-  margin-bottom:15px;
-  box-shadow:0 4px 10px rgba(0,0,0,.1);
-}
+.tela{display:none;padding:15px;max-width:500px;margin:auto;}
+.card{background:#fff;padding:15px;border-radius:12px;margin-bottom:15px;box-shadow:0 4px 10px rgba(0,0,0,.1);}
 
 input,select,button{
   width:100%;
-  padding:12px;
+  padding:10px;
   margin-top:8px;
   border-radius:8px;
   border:1px solid #ccc;
 }
 
-button{
-  background:var(--verde);
-  color:#fff;
-  border:none;
-}
-
-.menu button{ margin-bottom:10px; }
+button{background:var(--verde);color:#fff;border:none;}
+.menu button{margin-bottom:10px;}
+.excluir{background:#c0392b;}
 
 .item{
   background:#f7f7f7;
   padding:10px;
-  border-radius:8px;
   margin-top:10px;
-}
-
-.excluir{
-  background:#c0392b;
+  border-radius:8px;
 }
 </style>
 
 <script>
 let db, usuarioLogado=null;
-
 let projetos=["Aliança","Assu","AVT","Delta","Engie","Pampa"];
 
-/* 🔥 INICIALIZAÇÃO COMPLETA */
+/* INICIALIZAÇÃO */
 document.addEventListener("DOMContentLoaded", async ()=>{
 
-  // IMPORTA FIREBASE
   const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
   const { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } =
     await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+
+  window.fb = { collection, addDoc, getDocs, deleteDoc, doc };
 
   const firebaseConfig = {
     apiKey: "AIzaSyAMgb-lp7EVOSbCzi9z1V_R4-QJE7p5ZI8",
@@ -92,20 +61,21 @@ document.addEventListener("DOMContentLoaded", async ()=>{
 
   mostrar("login");
 
-  // CARREGAR PROJETOS
+  // projetos
   ["rProjeto","aProjeto"].forEach(id=>{
     let s=document.getElementById(id);
-    projetos.forEach(p=>{
-      let o=document.createElement("option");
-      o.text=p;
-      s.add(o);
-    });
+    if(s){
+      projetos.forEach(p=>{
+        let o=document.createElement("option");
+        o.text=p;
+        s.add(o);
+      });
+    }
   });
 
-  // BOTÕES PRINCIPAIS
-  document.getElementById("btnEntrar").onclick = entrar;
-  document.getElementById("btnSalvar").onclick = registrar;
-
+  // botões
+  btnEntrar.onclick = entrar;
+  btnSalvar.onclick = registrar;
 });
 
 /* TELAS */
@@ -115,16 +85,23 @@ function mostrar(id){
 }
 window.mostrar = mostrar;
 
-/* ✅ LOGIN FUNCIONANDO */
+/* ✅ LOGIN CORRIGIDO */
 async function entrar(){
 
-  const { collection, getDocs } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+  let user = loginUser.value.trim().toLowerCase();
+  let pass = loginPass.value.trim();
 
-  let user = loginUser.value;
-  let pass = loginPass.value;
+  // LOGIN FIXO RH
+  if(user==="rh" && pass==="cymirh2026"){
+    usuarioLogado={perfil:"rh"};
+    montarMenu();
+    mostrar("menu");
+    return;
+  }
+
+  const { collection, getDocs } = window.fb;
 
   let snapshot = await getDocs(collection(db,"usuarios"));
-
   let achou=null;
 
   snapshot.forEach(doc=>{
@@ -146,29 +123,26 @@ async function entrar(){
 
 /* MENU */
 function montarMenu(){
-  let m=menu;
-  m.innerHTML="<h3>Menu</h3>";
+  menu.innerHTML="<h3>Menu</h3>";
 
-  m.innerHTML+=`<button onclick="mostrar('registro')">Registrar</button>`;
-  m.innerHTML+=`<button onclick="mostrar('registros'); listar()">Registros</button>`;
-  m.innerHTML+=`<button onclick="mostrar('relatorios')">Relatórios</button>`;
+  menu.innerHTML+=`<button onclick="mostrar('registro')">Registrar</button>`;
+  menu.innerHTML+=`<button onclick="mostrar('registros'); listar()">Registros</button>`;
+  menu.innerHTML+=`<button onclick="mostrar('relatorios')">Relatórios</button>`;
 
   if(usuarioLogado.perfil==="rh"){
-    m.innerHTML+=`<button onclick="mostrar('ajuste')">Ajustar Saldo</button>`;
-    m.innerHTML+=`<button onclick="mostrar('usuarios')">Usuários</button>`;
+    menu.innerHTML+=`<button onclick="mostrar('ajuste')">Ajustar Saldo</button>`;
+    menu.innerHTML+=`<button onclick="mostrar('usuarios')">Usuários</button>`;
   }
 
-  m.innerHTML+=`<button onclick="location.reload()">Sair</button>`;
+  menu.innerHTML+=`<button onclick="location.reload()">Sair</button>`;
 }
 
-/* ✅ REGISTRAR */
+/* REGISTRAR */
 async function registrar(){
-
-  const { collection, addDoc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+  const { addDoc, collection } = window.fb;
 
   let h=(new Date("1970-1-1 "+rSaida.value) -
          new Date("1970-1-1 "+rEntrada.value))/3600000;
-
   if(h<0)h+=24;
 
   await addDoc(collection(db,"registros"),{
@@ -185,10 +159,9 @@ async function registrar(){
   alert("Registrado ✅");
 }
 
-/* ✅ LISTAR + SALDO + FILTRO */
+/* LISTAR */
 async function listar(){
-
-  const { collection, getDocs } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+  const { getDocs, collection } = window.fb;
 
   listaRegistros.innerHTML="";
   let filtro=filtroNome.value.toLowerCase();
@@ -219,22 +192,20 @@ async function listar(){
 
 /* EXCLUIR */
 async function excluirRegistro(id){
+  const { deleteDoc, doc } = window.fb;
 
-  const { deleteDoc, doc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
-
-  if(confirm("Excluir este registro?")){
+  if(confirm("Excluir registro?")){
     await deleteDoc(doc(db,"registros",id));
     listar();
   }
 }
 
-/* ✅ AJUSTE */
+/* AJUSTE */
 async function ajustarSaldo(){
-
-  const { collection, addDoc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+  const { addDoc, collection } = window.fb;
 
   let horas=parseFloat(aHoras.value);
-  let tipo= horas>=0?"banco":"compensar";
+  let tipo=horas>=0?"banco":"compensar";
 
   await addDoc(collection(db,"registros"),{
     nome:aNome.value,
@@ -250,10 +221,9 @@ async function ajustarSaldo(){
   alert("Ajuste aplicado ✅");
 }
 
-/* ✅ USUÁRIOS */
+/* USUÁRIOS */
 async function cadastrarUsuario(){
-
-  const { collection, addDoc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+  const { addDoc, collection } = window.fb;
 
   await addDoc(collection(db,"usuarios"),{
     usuario:uNome.value,
@@ -264,11 +234,11 @@ async function cadastrarUsuario(){
   alert("Usuário cadastrado ✅");
 }
 
-/* ✅ RELATÓRIOS */
+/* RELATÓRIOS */
 async function exportarDetalhado(){
-  const { collection, getDocs } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
-
+  const { getDocs, collection } = window.fb;
   let csv="Colaborador;Data;Entrada;Saida;Horas;Projeto;Tipo;Motivo\n";
+
   let snapshot=await getDocs(collection(db,"registros"));
 
   snapshot.forEach(d=>{
@@ -280,9 +250,10 @@ async function exportarDetalhado(){
 }
 
 async function exportarSaldo(){
-  const { collection, getDocs } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+  const { getDocs, collection } = window.fb;
 
   let snapshot=await getDocs(collection(db,"registros"));
+
   let saldo={};
 
   snapshot.forEach(d=>{
@@ -318,8 +289,8 @@ function downloadCSV(csv,nome){
 
 <div id="login" class="tela card">
 <h3>Login</h3>
-<input id="loginUser">
-<input id="loginPass" type="password">
+<input id="loginUser" placeholder="Usuário">
+<input id="loginPass" type="password" placeholder="Senha">
 <button id="btnEntrar">Entrar</button>
 </div>
 
