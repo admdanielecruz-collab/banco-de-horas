@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Controle RH</title>
+
+<style>
+body {
+    font-family: Arial;
+    background: #f5f5f5;
+    margin: 20px;
+}
+
+.container {
+    max-width: 900px;
+    margin: auto;
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+}
+
+input, select, button {
+    width: 100%;
+    padding: 10px;
+    margin: 5px 0;
+}
+
+button {
+    background: #239148;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #1b7036;
+}
+
+.hidden { display: none; }
+
+.card {
+    background: #eee;
+    padding: 10px;
+    margin-top: 8px;
+}
+</style>
+</head>
+
+<body>
+
+<!-- REGISTRO -->
+<div class="container" id="telaGestor">
+<h2>Registro de Horas</h2>
+
+<input id="nome" placeholder="Nome do colaborador">
+<input type="date" id="data">
+<input type="time" id="entrada">
+<input type="time" id="saida">
+<input id="motivo" placeholder="Motivo">
+
+<select id="projeto">
+<option>Aliança</option><option>Assu</option><option>AVT</option>
+<option>Cesbe</option><option>Chimarrão</option><option>Delta</option>
+<option>Duna</option><option>Edfy</option>
+<option>Eletrobras CHESF</option><option>Eletrosul</option>
+<option>Engie</option><option>Éolicas Babilonia</option>
+<option>Esperanza</option><option>Evoltz</option>
+<option>HRZ</option><option>JMM</option>
+<option>Litoral Sul</option><option>Mantoqueira</option>
+<option>Odoya</option><option>Pampa</option>
+<option>Sertaneja</option><option>Verde</option>
+<option>Vineyards</option>
+</select>
+
+<select id="tipo">
+<option value="banco">Banco de Horas</option>
+<option value="compensar">Compensar</option>
+</select>
+
+<button type="button" onclick="registrar()">Registrar</button>
+<button type="button" onclick="loginRH()">Acesso RH</button>
+</div>
+
+<!-- RH -->
+<div class="container hidden" id="telaRH">
+<h2>Painel RH</h2>
+
+<input id="buscarNome" placeholder="Filtrar nome" onkeyup="renderRH()">
+
+<input id="saldoManual" type="number" placeholder="Adicionar saldo manual">
+<button onclick="salvarSaldo()">Salvar saldo</button>
+
+<button onclick="exportar()">Exportar Detalhado</button>
+<button onclick="exportarSaldo()">Exportar Saldo por Colaborador</button>
+
+<div id="lista"></div>
+
+<h3 id="saldoFinal"></h3>
+
+<button onclick="voltar()">Voltar</button>
+</div>
+
+<script>
+
+let registros = JSON.parse(localStorage.getItem("registros")) || [];
+let saldos = JSON.parse(localStorage.getItem("saldos")) || {};
+
+// HORAS
+function calcularHoras(inicio,fim){
+    let [h1,m1]=inicio.split(":").map(Number);
+    let [h2,m2]=fim.split(":").map(Number);
+
+    let i=h1*60+m1;
+    let f=h2*60+m2;
+
+    if(f<i) f+=1440;
+
+    return ((f-i)/60).toFixed(2);
+}
+
+// REGISTRAR
+function registrar(){
+    let nome=document.getElementById("nome").value.trim();
+    let data=document.getElementById("data").value;
+    let entrada=document.getElementById("entrada").value;
+    let saida=document.getElementById("saida").value;
+
+    if(!nome||!data||!entrada||!saida){
+        alert("Preencha tudo!");
+        return;
+    }
+
+    registros.push({
+        nome,
+        data,
+        entrada,
+        saida,
+        horas:calcularHoras(entrada,saida),
+        projeto:document.getElementById("projeto").value,
+        tipo:document.getElementById("tipo").value,
+        motivo:document.getElementById("motivo").value
+    });
+
+    localStorage.setItem("registros",JSON.stringify(registros));
+    alert("✅ Registrado!");
+
+    document.getElementById("nome").value="";
+    document.getElementById("data").value="";
+    document.getElementById("entrada").value="";
+    document.getElementById("saida").value="";
+    document.getElementById("motivo").value="";
+}
+
+// LOGIN RH
+function loginRH(){
+    let senha=prompt("Senha RH:");
+    if(senha && senha.trim()==="cymirh2026"){
+        document.getElementById("telaGestor").classList.add("hidden");
+        document.getElementById("telaRH").classList.remove("hidden");
+        renderRH();
+    }else{
+        alert("Senha incorreta!");
+    }
+}
+
+// SALDO
+function calcularSaldo(nome){
+    let total=saldos[nome]||0;
+
+    registros.forEach(r=>{
+        if(r.nome.toLowerCase()===nome){
+            if(r.tipo==="banco") total+=parseFloat(r.horas);
+            else total-=parseFloat(r.horas);
+        }
+    });
+
+    return total;
+}
+
+// SALDO MANUAL
+function salvarSaldo(){
+    let nome=document.getElementById("buscarNome").value.toLowerCase().trim();
+    let valor=parseFloat(document.getElementById("saldoManual").value)||0;
+
+    if(!nome){
+        alert("Digite o nome!");
+        return;
+    }
+
+    saldos[nome]=(saldos[nome]||0)+valor;
+    localStorage.setItem("saldos",JSON.stringify(saldos));
+
+    alert("✅ Saldo atualizado!");
+    document.getElementById("saldoManual").value="";
+    renderRH();
+}
+
+// LISTA RH
+function renderRH(){
+    let filtro=document.getElementById("buscarNome").value.toLowerCase();
+    let lista=document.getElementById("lista");
+
+    lista.innerHTML="";
+
+    registros.forEach(r=>{
+        if(!filtro||r.nome.toLowerCase().includes(filtro)){
+            lista.innerHTML+=`
+            <div class="card">
+            <b>${r.nome}</b><br>
+            ${r.data} | ${r.entrada}-${r.saida}<br>
+            Horas: ${r.horas}h<br>
+            Tipo: ${r.tipo}<br>
+            Projeto: ${r.projeto}<br>
+            Motivo: ${r.motivo}
+            </div>`;
+        }
+    });
+
+    if(filtro){
+        document.getElementById("saldoFinal").innerText =
+        "Saldo Atual: "+calcularSaldo(filtro).toFixed(2)+" horas";
+    } else {
+        document.getElementById("saldoFinal").innerText="";
+    }
+}
+
+// EXPORTAR DETALHADO
+function exportar(){
+
+    let nomeFiltro=document.getElementById("buscarNome").value.toLowerCase().trim();
+
+    let saldosCalc={};
+
+    registros.forEach(r=>{
+        let n=r.nome.toLowerCase();
+        if(!saldosCalc[n]) saldosCalc[n]=saldos[n]||0;
+
+        if(r.tipo==="banco") saldosCalc[n]+=parseFloat(r.horas);
+        else saldosCalc[n]-=parseFloat(r.horas);
+    });
+
+    let csv="\uFEFF";
+    csv+="Nome;Data;Entrada;Saida;Horas;Tipo;Projeto;Motivo;Saldo Atual\n";
+
+    registros.forEach(r=>{
+        let n=r.nome.toLowerCase();
+
+        if(!nomeFiltro||n===nomeFiltro){
+            csv+=`${r.nome};${r.data};${r.entrada};${r.saida};${r.horas};${r.tipo};${r.projeto};"${r.motivo}";${saldosCalc[n].toFixed(2)}\n`;
+        }
+    });
+
+    let blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});
+    let link=document.createElement("a");
+    link.href=URL.createObjectURL(blob);
+    link.download=nomeFiltro?"relatorio_"+nomeFiltro+".csv":"relatorio_geral.csv";
+    link.click();
+}
+
+// EXPORTAR SALDO + PROJETO
+function exportarSaldo(){
+
+    let saldosFinais = {};
+    let projetos = {};
+
+    registros.forEach(r=>{
+        let n = r.nome.toLowerCase();
+
+        // último projeto registrado
+        projetos[n] = r.projeto;
+
+        if(!saldosFinais[n]) saldosFinais[n] = saldos[n] || 0;
+
+        if(r.tipo==="banco") saldosFinais[n]+=parseFloat(r.horas);
+        else saldosFinais[n]-=parseFloat(r.horas);
+    });
+
+    let csv="\uFEFF";
+    csv+="Nome;Projeto;Saldo Atual\n";
+
+    for(let nome in saldosFinais){
+        csv+=`${nome};${projetos[nome] || "-"};${saldosFinais[nome].toFixed(2)}\n`;
+    }
+
+    let blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});
+    let link=document.createElement("a");
+
+    link.href=URL.createObjectURL(blob);
+    link.download="saldo_colaboradores.csv";
+    link.click();
+}
+
+// VOLTAR
+function voltar(){
+    document.getElementById("telaRH").classList.add("hidden");
+    document.getElementById("telaGestor").classList.remove("hidden");
+}
+
+</script>
+
+</body>
+</html>
+
+
+
+
+
+
+
+
