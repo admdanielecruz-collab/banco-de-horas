@@ -12,22 +12,35 @@ header{background:#239148;color:#fff;padding:15px;text-align:center}
 .card{background:#fff;padding:15px;border-radius:10px;margin-top:15px}
 
 input,select,button{
-width:100%;padding:10px;margin-top:8px;border-radius:8px
+width:100%;padding:10px;margin-top:8px;border-radius:8px;border:1px solid #ccc
 }
 
 button{background:#239148;color:#fff;border:none}
 .excluir{background:red}
 
 .item{background:#f2f2f2;padding:10px;margin-top:10px;border-radius:8px}
+
+.msg{
+position:fixed;
+bottom:20px;
+left:50%;
+transform:translateX(-50%);
+background:#239148;
+color:#fff;
+padding:10px 20px;
+border-radius:8px;
+display:none;
+}
 </style>
 
+<div id="msg" class="msg"></div>
+
 <script>
-let db, usuarioLogado=null;
+let db, fb, usuarioLogado=null;
 let projetos=["Aliança","Assu","AVT","Delta","Engie","Pampa"];
 
 document.addEventListener("DOMContentLoaded", async ()=>{
 
-// FIREBASE
 const f1 = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
 const f2 = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
 
@@ -38,41 +51,48 @@ const app = f1.initializeApp({
 });
 
 db = f2.getFirestore(app);
+fb = f2;
 
-window.fb=f2;
-
-// telas
 mostrar("login");
 
-// projetar combos
+// preencher projetos
 ["rProjeto","aProjeto"].forEach(id=>{
  let s=document.getElementById(id);
- projetos.forEach(p=>{
-  let o=document.createElement("option");
-  o.text=p;
-  s.add(o);
- });
+ if(s){
+  projetos.forEach(p=>{
+   let o=document.createElement("option");
+   o.text=p;
+   s.add(o);
+  });
+ }
 });
 
 // botões
 btnEntrar.onclick=entrar;
 btnSalvar.onclick=registrar;
-
 });
+
+/* MENSAGEM */
+function msg(t){
+ let m=msgBox;
+ m.innerText=t;
+ m.style.display="block";
+ setTimeout(()=>m.style.display="none",2000);
+}
 
 /* TELAS */
 function mostrar(id){
-document.querySelectorAll(".tela").forEach(t=>t.style.display="none");
-document.getElementById(id).style.display="block";
+ document.querySelectorAll(".tela").forEach(t=>t.style.display="none");
+ document.getElementById(id).style.display="block";
 }
 
 /* LOGIN */
 async function entrar(){
 
-let u=loginUser.value.toLowerCase();
-let p=loginPass.value;
+let u=loginUser.value.trim().toLowerCase();
+let p=loginPass.value.trim();
 
-// LOGIN RH FIXO
+// RH FIXO
 if(u==="rh" && p==="cymirh2026"){
  usuarioLogado={perfil:"rh"};
  montarMenu();
@@ -80,18 +100,19 @@ if(u==="rh" && p==="cymirh2026"){
  return;
 }
 
-// usuários banco
+// banco
 let snap=await fb.getDocs(fb.collection(db,"usuarios"));
-
 let ok=null;
+
 snap.forEach(d=>{
  let x=d.data();
- if(x.usuario===u && x.senha===p){
-  ok=x;
- }
+ if(x.usuario===u && x.senha===p) ok=x;
 });
 
-if(!ok){alert("Login inválido");return;}
+if(!ok){
+ msg("Login inválido");
+ return;
+}
 
 usuarioLogado=ok;
 montarMenu();
@@ -100,6 +121,7 @@ mostrar("menu");
 
 /* MENU */
 function montarMenu(){
+
 menu.innerHTML="<h3>Menu</h3>";
 
 menu.innerHTML+=`<button onclick="mostrar('registro')">Registrar</button>`;
@@ -117,9 +139,13 @@ menu.innerHTML+=`<button onclick="location.reload()">Sair</button>`;
 /* REGISTRAR */
 async function registrar(){
 
+if(!rNome.value){
+ msg("Informe o nome");
+ return;
+}
+
 let h=(new Date("1970 "+rSaida.value)-
        new Date("1970 "+rEntrada.value))/3600000;
-
 if(h<0)h+=24;
 
 await fb.addDoc(fb.collection(db,"registros"),{
@@ -133,15 +159,17 @@ await fb.addDoc(fb.collection(db,"registros"),{
  motivo:rMotivo.value
 });
 
-alert("✅ Salvo com sucesso");
+msg("✅ Registro salvo");
 
-// limpa campos
-rNome.value=rData.value=rEntrada.value=rSaida.value=rMotivo.value="";
+// limpar campos
+rNome.value="";
+rData.value="";
+rEntrada.value="";
+rSaida.value="";
+rMotivo.value="";
 
-// atualiza automático
-if(document.getElementById("registros").style.display==="block"){
- listar();
-}
+// atualizar lista automaticamente
+listar();
 }
 
 /* ABRIR REGISTROS */
@@ -154,8 +182,8 @@ listar();
 async function listar(){
 
 listaRegistros.innerHTML="";
-let saldo=0;
 let filtro=filtroNome.value.toLowerCase();
+let saldo=0;
 
 let snap=await fb.getDocs(fb.collection(db,"registros"));
 
@@ -181,16 +209,21 @@ saldoColaborador.innerText=saldo.toFixed(2);
 
 /* EXCLUIR */
 async function excluir(id){
-if(confirm("Excluir registro?")){
- await fb.deleteDoc(fb.doc(db,"registros",id));
- listar();
-}
+await fb.deleteDoc(fb.doc(db,"registros",id));
+msg("❌ Registro excluído");
+listar();
 }
 
 /* AJUSTE */
 async function ajustarSaldo(){
 
 let horas=parseFloat(aHoras.value);
+
+if(!aNome.value || isNaN(horas)){
+ msg("Preencha corretamente");
+ return;
+}
+
 let tipo=horas>=0?"banco":"compensar";
 
 await fb.addDoc(fb.collection(db,"registros"),{
@@ -204,11 +237,16 @@ await fb.addDoc(fb.collection(db,"registros"),{
  motivo:"Ajuste manual"
 });
 
-alert("✅ Ajuste aplicado");
+msg("✅ Ajuste aplicado");
 }
 
 /* USUÁRIOS */
 async function cadastrarUsuario(){
+
+if(!uNome.value || !uSenha.value){
+ msg("Preencha os campos");
+ return;
+}
 
 await fb.addDoc(fb.collection(db,"usuarios"),{
  usuario:uNome.value,
@@ -216,13 +254,13 @@ await fb.addDoc(fb.collection(db,"usuarios"),{
  perfil:uPerfil.value
 });
 
-alert("✅ Usuário cadastrado");
+msg("✅ Usuário cadastrado");
 }
 
 /* RELATÓRIOS */
 async function exportarDetalhado(){
 
-let f=prompt("Filtrar colaborador (vazio=todos)")?.toLowerCase();
+let f=prompt("Colaborador (vazio = todos)")?.toLowerCase();
 
 let csv="Nome;Data;Entrada;Saida;Horas\n";
 
@@ -240,13 +278,14 @@ downloadCSV(csv,"detalhado.csv");
 
 async function exportarSaldo(){
 
-let f=prompt("Filtrar colaborador (vazio=todos)")?.toLowerCase();
+let f=prompt("Colaborador (vazio = todos)")?.toLowerCase();
 
 let saldo={};
 let snap=await fb.getDocs(fb.collection(db,"registros"));
 
 snap.forEach(d=>{
  let r=d.data();
+
  if(f && !r.nome.toLowerCase().includes(f)) return;
 
  if(!saldo[r.nome]) saldo[r.nome]=0;
@@ -318,7 +357,7 @@ a.click();
 <div id="ajuste" class="tela card">
 <input id="aNome" placeholder="Colaborador">
 <select id="aProjeto"></select>
-<input type="number" id="aHoras">
+<input id="aHoras" type="number">
 <button onclick="ajustarSaldo()">Aplicar</button>
 <button onclick="mostrar('menu')">Voltar</button>
 </div>
