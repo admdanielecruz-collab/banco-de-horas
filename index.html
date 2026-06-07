@@ -22,43 +22,22 @@ header{
   font-weight:bold;
 }
 
-.tela{
-  display:none;
-  padding:15px;
-  max-width:500px;
-  margin:auto;
-}
-
+.tela{display:none;padding:15px;max-width:500px;margin:auto;}
 .card{
-  background:#fff;
-  padding:15px;
-  border-radius:12px;
-  margin-bottom:15px;
-  box-shadow:0 4px 10px rgba(0,0,0,.1);
+  background:#fff;padding:15px;border-radius:12px;
+  margin-bottom:15px;box-shadow:0 4px 10px rgba(0,0,0,.1);
 }
 
 input,select,button{
-  width:100%;
-  padding:10px;
-  margin-top:8px;
-  border-radius:8px;
-  border:1px solid #ccc;
+  width:100%;padding:10px;margin-top:8px;border-radius:8px;border:1px solid #ccc;
 }
 
-button{
-  background:var(--verde);
-  color:#fff;
-  border:none;
-}
-
-.menu button{ margin-bottom:10px; }
-.excluir{ background:#c0392b; }
+button{background:var(--verde);color:#fff;border:none;}
+.menu button{margin-bottom:10px;}
+.excluir{background:#c0392b;}
 
 .item{
-  background:#f7f7f7;
-  padding:10px;
-  margin-top:10px;
-  border-radius:8px;
+  background:#f7f7f7;padding:10px;margin-top:10px;border-radius:8px;
 }
 </style>
 
@@ -66,12 +45,11 @@ button{
 let db, usuarioLogado=null;
 let projetos=["Aliança","Assu","AVT","Delta","Engie","Pampa"];
 
-/* INICIALIZAÇÃO */
 document.addEventListener("DOMContentLoaded", async ()=>{
 
-  const { initializeApp } = await import("https://firebase.google.com/docs/web/setup#available-libraries");
+  const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
   const { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } =
-    await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+        await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
 
   window.fb = { collection, addDoc, getDocs, deleteDoc, doc };
 
@@ -109,15 +87,13 @@ function mostrar(id){
   document.querySelectorAll(".tela").forEach(t=>t.style.display="none");
   document.getElementById(id).style.display="block";
 }
-window.mostrar = mostrar;
 
-/* ✅ LOGIN */
+/* LOGIN */
 async function entrar(){
 
   let user = loginUser.value.trim().toLowerCase();
   let pass = loginPass.value.trim();
 
-  // LOGIN FIXO RH
   if(user==="rh" && pass==="cymirh2026"){
     usuarioLogado={perfil:"rh"};
     montarMenu();
@@ -163,7 +139,7 @@ function montarMenu(){
   menu.innerHTML+=`<button onclick="location.reload()">Sair</button>`;
 }
 
-/* ✅ REGISTRAR */
+/* REGISTRAR */
 async function registrar(){
   const { addDoc, collection } = window.fb;
 
@@ -174,7 +150,6 @@ async function registrar(){
 
   let h=(new Date("1970-1-1 "+rSaida.value) -
          new Date("1970-1-1 "+rEntrada.value))/3600000;
-
   if(h<0)h+=24;
 
   await addDoc(collection(db,"registros"),{
@@ -190,7 +165,6 @@ async function registrar(){
 
   alert("Registro salvo ✅");
 
-  // limpar campos
   rNome.value="";
   rData.value="";
   rEntrada.value="";
@@ -198,7 +172,7 @@ async function registrar(){
   rMotivo.value="";
 }
 
-/* ✅ LISTAR */
+/* LISTAR */
 async function listar(){
   const { getDocs, collection } = window.fb;
 
@@ -206,7 +180,7 @@ async function listar(){
   let filtro=filtroNome.value.toLowerCase();
   let saldo=0;
 
-  let snapshot = await getDocs(collection(db,"registros"));
+  let snapshot=await getDocs(collection(db,"registros"));
 
   snapshot.forEach(doc=>{
     let r=doc.data();
@@ -229,7 +203,7 @@ async function listar(){
   saldoColaborador.innerText=saldo.toFixed(2);
 }
 
-/* ✅ EXCLUIR */
+/* EXCLUIR */
 async function excluirRegistro(id){
   const { deleteDoc, doc } = window.fb;
 
@@ -239,17 +213,11 @@ async function excluirRegistro(id){
   }
 }
 
-/* ✅ AJUSTE */
+/* AJUSTE */
 async function ajustarSaldo(){
   const { addDoc, collection } = window.fb;
 
   let horas=parseFloat(aHoras.value);
-
-  if(!aNome.value || isNaN(horas)){
-    alert("Preencha corretamente");
-    return;
-  }
-
   let tipo=horas>=0?"banco":"compensar";
 
   await addDoc(collection(db,"registros"),{
@@ -266,14 +234,9 @@ async function ajustarSaldo(){
   alert("Ajuste aplicado ✅");
 }
 
-/* ✅ USUÁRIOS */
+/* USUÁRIOS */
 async function cadastrarUsuario(){
   const { addDoc, collection } = window.fb;
-
-  if(!uNome.value || !uSenha.value){
-    alert("Preencha os dados");
-    return;
-  }
 
   await addDoc(collection(db,"usuarios"),{
     usuario:uNome.value,
@@ -284,19 +247,17 @@ async function cadastrarUsuario(){
   alert("Usuário cadastrado ✅");
 }
 
-/* ✅ RELATÓRIOS COM FILTRO */
+/* RELATÓRIOS */
 async function exportarDetalhado(){
   const { getDocs, collection } = window.fb;
 
-  let filtro = prompt("Filtrar colaborador (vazio = todos)")?.toLowerCase();
+  let filtro=prompt("Filtrar colaborador")?.toLowerCase();
 
   let csv="Colaborador;Data;Entrada;Saida;Horas;Projeto;Tipo;Motivo\n";
-
-  let snapshot = await getDocs(collection(db,"registros"));
+  let snapshot=await getDocs(collection(db,"registros"));
 
   snapshot.forEach(d=>{
     let r=d.data();
-
     if(filtro && !r.nome.toLowerCase().includes(filtro)) return;
 
     csv+=`${r.nome};${r.data};${r.entrada};${r.saida};${r.horas.toFixed(2)};${r.projeto};${r.tipo};${r.motivo}\n`;
@@ -308,14 +269,13 @@ async function exportarDetalhado(){
 async function exportarSaldo(){
   const { getDocs, collection } = window.fb;
 
-  let filtro = prompt("Filtrar colaborador (vazio = todos)")?.toLowerCase();
+  let filtro=prompt("Filtrar colaborador")?.toLowerCase();
 
   let snapshot=await getDocs(collection(db,"registros"));
   let saldo={};
 
   snapshot.forEach(d=>{
     let r=d.data();
-
     if(filtro && !r.nome.toLowerCase().includes(filtro)) return;
 
     if(!saldo[r.nome]) saldo[r.nome]=0;
@@ -350,8 +310,8 @@ function downloadCSV(csv,nome){
 
 <div id="login" class="tela card">
 <h3>Login</h3>
-<input id="loginUser" placeholder="Usuário">
-<input id="loginPass" type="password" placeholder="Senha">
+<input id="loginUser">
+<input id="loginPass" type="password">
 <button id="btnEntrar">Entrar</button>
 </div>
 
@@ -374,22 +334,19 @@ function downloadCSV(csv,nome){
 </div>
 
 <div id="registros" class="tela card">
-<h3>Registros</h3>
-<input id="filtroNome" placeholder="Filtrar colaborador" oninput="listar()">
-<div><b>Saldo:</b> <span id="saldoColaborador">0</span></div>
+<input id="filtroNome" oninput="listar()">
+<div>Saldo: <span id="saldoColaborador">0</span></div>
 <div id="listaRegistros"></div>
 <button onclick="mostrar('menu')">Voltar</button>
 </div>
 
 <div id="relatorios" class="tela card">
-<h3>Relatórios</h3>
 <button onclick="exportarDetalhado()">Excel Detalhado</button>
 <button onclick="exportarSaldo()">Excel Saldo</button>
 <button onclick="mostrar('menu')">Voltar</button>
 </div>
 
 <div id="ajuste" class="tela card">
-<h3>Ajuste de Saldo</h3>
 <input id="aNome">
 <select id="aProjeto"></select>
 <input type="number" id="aHoras">
@@ -398,7 +355,6 @@ function downloadCSV(csv,nome){
 </div>
 
 <div id="usuarios" class="tela card">
-<h3>Usuários</h3>
 <input id="uNome">
 <input id="uSenha">
 <select id="uPerfil">
