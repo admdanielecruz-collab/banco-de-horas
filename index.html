@@ -60,7 +60,6 @@ import {
   getFirestore, collection, addDoc, getDocs, deleteDoc, doc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-/* FIREBASE (SEU JÁ CONFIGURADO) */
 const firebaseConfig = {
   apiKey: "AIzaSyAMgb-lp7EVOSbCzi9z1V_R4-QJE7p5ZI8",
   authDomain: "banco-de-horas-aff08.firebaseapp.com",
@@ -73,44 +72,46 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-/* VARIÁVEIS */
-let projetos=["Aliança","Assu","AVT","Delta","Engie","Pampa"];
 let usuarioLogado=null;
+let projetos=["Aliança","Assu","AVT","Delta","Engie","Pampa"];
 
 /* TELAS */
-window.mostrar = function(id){
+window.mostrar=(id)=>{
   document.querySelectorAll(".tela").forEach(t=>t.style.display="none");
   document.getElementById(id).style.display="block";
 }
 mostrar("login");
 
-/* PROJETOS */
-window.onload = ()=>{
-  ["rProjeto","aProjeto"].forEach(id=>{
-    let s=document.getElementById(id);
-    projetos.forEach(p=>{
-      let o=document.createElement("option");
-      o.text=p;
-      s.add(o);
-    });
-  });
-};
+/* LOGIN REAL */
+window.entrar=async function(){
+  let user=loginUser.value;
+  let pass=loginPass.value;
 
-/* LOGIN */
-window.entrar=function(){
-  if(loginUser.value==="rh" && loginPass.value==="cymirh2026"){
-    usuarioLogado={perfil:"rh"};
+  const snapshot=await getDocs(collection(db,"usuarios"));
+
+  let logado=null;
+
+  snapshot.forEach(doc=>{
+    let u=doc.data();
+    if(u.usuario===user && u.senha===pass){
+      logado=u;
+    }
+  });
+
+  if(logado){
+    usuarioLogado=logado;
+    montarMenu();
+    mostrar("menu");
   }else{
-    usuarioLogado={perfil:"gestor"};
+    alert("Login inválido");
   }
-  montarMenu();
-  mostrar("menu");
 }
 
 /* MENU */
 window.montarMenu=function(){
   let m=menu;
   m.innerHTML="<h3>Menu</h3>";
+
   m.innerHTML+=`<button onclick="mostrar('registro')">Registrar</button>`;
   m.innerHTML+=`<button onclick="mostrar('registros'); listar();">Registros</button>`;
   m.innerHTML+=`<button onclick="mostrar('relatorios')">Relatórios</button>`;
@@ -121,6 +122,18 @@ window.montarMenu=function(){
   }
 
   m.innerHTML+=`<button onclick="location.reload()">Sair</button>`;
+}
+
+/* PROJETOS */
+window.onload=()=>{
+  ["rProjeto","aProjeto"].forEach(id=>{
+    let s=document.getElementById(id);
+    projetos.forEach(p=>{
+      let o=document.createElement("option");
+      o.text=p;
+      s.add(o);
+    });
+  });
 }
 
 /* REGISTRAR */
@@ -140,7 +153,7 @@ window.registrar=async function(){
     motivo:rMotivo.value
   });
 
-  alert("Salvo online ✅");
+  alert("Registro salvo ✅");
 }
 
 /* LISTAR */
@@ -160,12 +173,13 @@ window.listar=async function(){
     if(r.tipo==="compensar") saldo-=r.horas;
 
     listaRegistros.innerHTML+=`
-      <div class="item">
-        <b>${r.nome}</b><br>
-        ${r.data} ${r.entrada}-${r.saida} (${r.horas.toFixed(2)}h)<br>
-        ${r.projeto}<br>
-        <button class="excluir" onclick="excluirRegistro('${d.id}')">Excluir</button>
-      </div>`;
+    <div class="item">
+      <b>${r.nome}</b><br>
+      ${r.data} ${r.entrada}-${r.saida} (${r.horas.toFixed(2)}h)<br>
+      ${r.projeto}<br>
+      <small>${r.motivo}</small>
+      <button class="excluir" onclick="excluirRegistro('${d.id}')">Excluir</button>
+    </div>`;
   });
 
   saldoColaborador.innerText=saldo.toFixed(2);
@@ -179,25 +193,36 @@ window.excluirRegistro=async function(id){
   }
 }
 
-/* AJUSTE */
+/* ✅ AJUSTE CORRETO */
 window.ajustarSaldo=async function(){
+  let horas=parseFloat(aHoras.value);
+
+  let tipo = horas >= 0 ? "banco" : "compensar";
+
   await addDoc(collection(db,"registros"),{
     nome:aNome.value,
     data:new Date().toISOString().split("T")[0],
     entrada:"00:00",
     saida:"00:00",
-    horas:parseFloat(aHoras.value),
+    horas:Math.abs(horas),
     projeto:aProjeto.value,
-    tipo:"banco",
+    tipo:tipo,
     motivo:"Ajuste manual"
   });
 
   alert("Ajuste aplicado ✅");
 }
 
-/* USUÁRIOS (simples local) */
-window.cadastrarUsuario=function(){
-  alert("Cadastro local (simples) realizado");
+/* ✅ USUÁRIOS REAL */
+window.cadastrarUsuario=async function(){
+
+  await addDoc(collection(db,"usuarios"),{
+    usuario:uNome.value,
+    senha:uSenha.value,
+    perfil:uPerfil.value
+  });
+
+  alert("Usuário cadastrado ✅");
 }
 
 /* RELATÓRIOS */
@@ -234,6 +259,7 @@ window.exportarSaldo=async function(){
   });
 
   let csv="Colaborador;Saldo\n";
+
   for(let n in saldo){
     csv+=`${n};${saldo[n].toFixed(2)}\n`;
   }
@@ -241,7 +267,6 @@ window.exportarSaldo=async function(){
   downloadCSV(csv,"saldo.csv");
 }
 
-/* DOWNLOAD */
 function downloadCSV(csv,nome){
   let blob=new Blob(["\ufeff"+csv],{type:"text/csv"});
   let link=document.createElement("a");
@@ -250,7 +275,6 @@ function downloadCSV(csv,nome){
   link.click();
 }
 
-/* VOLTAR */
 window.voltarMenu=()=>mostrar("menu");
 
 </script>
@@ -262,7 +286,7 @@ window.voltarMenu=()=>mostrar("menu");
 
 <div id="login" class="tela card">
 <h3>Login</h3>
-<input id="loginUser">
+<input id="loginUser" placeholder="Usuário">
 <input id="loginPass" type="password">
 <button onclick="entrar()">Entrar</button>
 </div>
@@ -301,18 +325,22 @@ window.voltarMenu=()=>mostrar("menu");
 </div>
 
 <div id="ajuste" class="tela card">
-<h3>Ajuste</h3>
-<input id="aNome">
+<h3>Ajuste de Saldo</h3>
+<input id="aNome" placeholder="Colaborador">
 <select id="aProjeto"></select>
-<input type="number" id="aHoras">
+<input type="number" id="aHoras" placeholder="+ ou - horas">
 <button onclick="ajustarSaldo()">Aplicar</button>
 <button onclick="voltarMenu()">Voltar</button>
 </div>
 
 <div id="usuarios" class="tela card">
 <h3>Usuários</h3>
-<input id="uNome">
-<input id="uSenha">
+<input id="uNome" placeholder="Usuário">
+<input id="uSenha" placeholder="Senha">
+<select id="uPerfil">
+<option value="gestor">Gestor</option>
+<option value="rh">RH</option>
+</select>
 <button onclick="cadastrarUsuario()">Cadastrar</button>
 <button onclick="voltarMenu()">Voltar</button>
 </div>
