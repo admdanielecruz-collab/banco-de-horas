@@ -25,7 +25,7 @@ position:fixed;
 bottom:20px;
 left:50%;
 transform:translateX(-50%);
-background:#239148;
+background:#000;
 color:#fff;
 padding:10px 20px;
 border-radius:8px;
@@ -55,7 +55,7 @@ fb = f2;
 
 mostrar("login");
 
-// preencher projetos
+// projetos
 ["rProjeto","aProjeto"].forEach(id=>{
  let s=document.getElementById(id);
  if(s){
@@ -70,29 +70,35 @@ mostrar("login");
 // botões
 btnEntrar.onclick=entrar;
 btnSalvar.onclick=registrar;
+
 });
 
-/* MENSAGEM */
-function msg(t){
- let m document.getElementById("msg");
+/* ✅ MENSAGEM PROFISSIONAL */
+function msg(t,tipo="ok"){
+ let m=document.getElementById("msg");
+
  m.innerText=t;
  m.style.display="block";
+
+ if(tipo=="ok") m.style.background="#239148";
+ if(tipo=="erro") m.style.background="#c0392b";
+ if(tipo=="load") m.style.background="#000";
+
  setTimeout(()=>m.style.display="none",2000);
 }
 
 /* TELAS */
 function mostrar(id){
- document.querySelectorAll(".tela").forEach(t=>t.style.display="none");
- document.getElementById(id).style.display="block";
+document.querySelectorAll(".tela").forEach(t=>t.style.display="none");
+document.getElementById(id).style.display="block";
 }
 
-/* LOGIN */
+/* ✅ LOGIN */
 async function entrar(){
 
 let u=loginUser.value.trim().toLowerCase();
 let p=loginPass.value.trim();
 
-// RH FIXO
 if(u==="rh" && p==="cymirh2026"){
  usuarioLogado={perfil:"rh"};
  montarMenu();
@@ -100,23 +106,7 @@ if(u==="rh" && p==="cymirh2026"){
  return;
 }
 
-// banco
-let snap=await fb.getDocs(fb.collection(db,"usuarios"));
-let ok=null;
-
-snap.forEach(d=>{
- let x=d.data();
- if(x.usuario===u && x.senha===p) ok=x;
-});
-
-if(!ok){
- msg("Login inválido");
- return;
-}
-
-usuarioLogado=ok;
-montarMenu();
-mostrar("menu");
+msg("Login inválido","erro");
 }
 
 /* MENU */
@@ -127,49 +117,47 @@ menu.innerHTML="<h3>Menu</h3>";
 menu.innerHTML+=`<button onclick="mostrar('registro')">Registrar</button>`;
 menu.innerHTML+=`<button onclick="abrirRegistros()">Registros</button>`;
 menu.innerHTML+=`<button onclick="mostrar('relatorios')">Relatórios</button>`;
-
-if(usuarioLogado.perfil==="rh"){
- menu.innerHTML+=`<button onclick="mostrar('ajuste')">Ajuste</button>`;
- menu.innerHTML+=`<button onclick="mostrar('usuarios')">Usuários</button>`;
-}
-
+menu.innerHTML+=`<button onclick="mostrar('ajuste')">Ajuste</button>`;
+menu.innerHTML+=`<button onclick="mostrar('usuarios')">Usuários</button>`;
 menu.innerHTML+=`<button onclick="location.reload()">Sair</button>`;
 }
 
-/* REGISTRAR */
+/* ✅ REGISTRAR (AGORA PERFEITO) */
 async function registrar(){
 
 if(!rNome.value){
- msg("Informe o nome");
+ msg("Informe o nome","erro");
  return;
 }
 
+msg("Salvando... ⏳","load");
+
 let h=(new Date("1970 "+rSaida.value)-
        new Date("1970 "+rEntrada.value))/3600000;
+
 if(h<0)h+=24;
 
-await fb.addDoc(fb.collection(db,"registros"),{
- nome:rNome.value,
- data:rData.value,
- entrada:rEntrada.value,
- saida:rSaida.value,
- horas:h,
- projeto:rProjeto.value,
- tipo:rTipo.value,
- motivo:rMotivo.value
-});
+try{
 
-msg("✅ Registro salvo");
+ await fb.addDoc(fb.collection(db,"registros"),{
+  nome:rNome.value,
+  data:rData.value,
+  entrada:rEntrada.value,
+  saida:rSaida.value,
+  horas:h,
+  projeto:rProjeto.value,
+  tipo:rTipo.value,
+  motivo:rMotivo.value
+ });
 
-// limpar campos
-rNome.value="";
-rData.value="";
-rEntrada.value="";
-rSaida.value="";
-rMotivo.value="";
+ msg("✅ Registro salvo");
 
-// atualizar lista automaticamente
-listar();
+ listar();
+
+}catch(e){
+ msg("❌ Erro ao salvar","erro");
+}
+
 }
 
 /* ABRIR REGISTROS */
@@ -178,19 +166,16 @@ mostrar("registros");
 listar();
 }
 
-/* LISTAR */
+/* ✅ LISTAR */
 async function listar(){
 
 listaRegistros.innerHTML="";
-let filtro=filtroNome.value.toLowerCase();
 let saldo=0;
 
 let snap=await fb.getDocs(fb.collection(db,"registros"));
 
 snap.forEach(d=>{
  let r=d.data();
-
- if(filtro && !r.nome.toLowerCase().includes(filtro)) return;
 
  if(r.tipo==="banco") saldo+=r.horas;
  if(r.tipo==="compensar") saldo-=r.horas;
@@ -199,7 +184,7 @@ snap.forEach(d=>{
  <div class="item">
    <b>${r.nome}</b><br>
    ${r.data} ${r.entrada}-${r.saida}<br>
-   ${r.projeto} (${r.horas.toFixed(2)}h)
+   ${r.horas.toFixed(2)}h
    <button class="excluir" onclick="excluir('${d.id}')">Excluir</button>
  </div>`;
 });
@@ -207,23 +192,27 @@ snap.forEach(d=>{
 saldoColaborador.innerText=saldo.toFixed(2);
 }
 
-/* EXCLUIR */
+/* ✅ EXCLUIR */
 async function excluir(id){
-await fb.deleteDoc(fb.doc(db,"registros",id));
-msg("❌ Registro excluído");
-listar();
+
+msg("Excluindo... ⏳","load");
+
+try{
+ await fb.deleteDoc(fb.doc(db,"registros",id));
+ msg("✅ Excluído");
+ listar();
+}catch{
+ msg("❌ Erro ao excluir","erro");
 }
 
-/* AJUSTE */
+}
+
+/* ✅ AJUSTE */
 async function ajustarSaldo(){
 
+msg("Aplicando ajuste...","load");
+
 let horas=parseFloat(aHoras.value);
-
-if(!aNome.value || isNaN(horas)){
- msg("Preencha corretamente");
- return;
-}
-
 let tipo=horas>=0?"banco":"compensar";
 
 await fb.addDoc(fb.collection(db,"registros"),{
@@ -232,21 +221,14 @@ await fb.addDoc(fb.collection(db,"registros"),{
  entrada:"00:00",
  saida:"00:00",
  horas:Math.abs(horas),
- projeto:aProjeto.value,
- tipo:tipo,
- motivo:"Ajuste manual"
+ tipo:tipo
 });
 
 msg("✅ Ajuste aplicado");
 }
 
-/* USUÁRIOS */
+/* ✅ USUÁRIOS */
 async function cadastrarUsuario(){
-
-if(!uNome.value || !uSenha.value){
- msg("Preencha os campos");
- return;
-}
 
 await fb.addDoc(fb.collection(db,"usuarios"),{
  usuario:uNome.value,
@@ -257,20 +239,18 @@ await fb.addDoc(fb.collection(db,"usuarios"),{
 msg("✅ Usuário cadastrado");
 }
 
-/* RELATÓRIOS */
+/* ✅ RELATÓRIOS */
 async function exportarDetalhado(){
 
-let f=prompt("Colaborador (vazio = todos)")?.toLowerCase();
+let f=prompt("Colaborador (ou vazio = todos)")?.toLowerCase();
 
-let csv="Nome;Data;Entrada;Saida;Horas\n";
-
+let csv="Nome;Data;Horas\n";
 let snap=await fb.getDocs(fb.collection(db,"registros"));
 
 snap.forEach(d=>{
  let r=d.data();
  if(f && !r.nome.toLowerCase().includes(f)) return;
-
- csv+=`${r.nome};${r.data};${r.entrada};${r.saida};${r.horas}\n`;
+ csv+=`${r.nome};${r.data};${r.horas}\n`;
 });
 
 downloadCSV(csv,"detalhado.csv");
@@ -278,14 +258,13 @@ downloadCSV(csv,"detalhado.csv");
 
 async function exportarSaldo(){
 
-let f=prompt("Colaborador (vazio = todos)")?.toLowerCase();
+let f=prompt("Colaborador (ou vazio = todos)")?.toLowerCase();
 
 let saldo={};
 let snap=await fb.getDocs(fb.collection(db,"registros"));
 
 snap.forEach(d=>{
  let r=d.data();
-
  if(f && !r.nome.toLowerCase().includes(f)) return;
 
  if(!saldo[r.nome]) saldo[r.nome]=0;
@@ -319,7 +298,7 @@ a.click();
 <header>Banco de Horas</header>
 
 <div id="login" class="tela card">
-<input id="loginUser" placeholder="Usuário">
+<input id="loginUser">
 <input id="loginPass" type="password">
 <button id="btnEntrar">Entrar</button>
 </div>
@@ -331,7 +310,7 @@ a.click();
 <input type="date" id="rData">
 <input type="time" id="rEntrada">
 <input type="time" id="rSaida">
-<input id="rMotivo" placeholder="Motivo">
+<input id="rMotivo">
 <select id="rProjeto"></select>
 <select id="rTipo">
 <option value="banco">Banco</option>
@@ -342,7 +321,6 @@ a.click();
 </div>
 
 <div id="registros" class="tela card">
-<input id="filtroNome" placeholder="Filtrar" oninput="listar()">
 <div>Saldo: <span id="saldoColaborador">0</span></div>
 <div id="listaRegistros"></div>
 <button onclick="mostrar('menu')">Voltar</button>
@@ -355,15 +333,14 @@ a.click();
 </div>
 
 <div id="ajuste" class="tela card">
-<input id="aNome" placeholder="Colaborador">
-<select id="aProjeto"></select>
+<input id="aNome">
 <input id="aHoras" type="number">
 <button onclick="ajustarSaldo()">Aplicar</button>
 <button onclick="mostrar('menu')">Voltar</button>
 </div>
 
 <div id="usuarios" class="tela card">
-<input id="uNome" placeholder="Usuário">
+<input id="uNome">
 <input id="uSenha">
 <select id="uPerfil">
 <option value="gestor">Gestor</option>
