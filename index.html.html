@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Controle RH</title>
+
+<style>
+body {
+    font-family: "Segoe UI", Arial;
+    background: #eef2f5;
+    margin: 0;
+}
+
+/* CABEÇALHO */
+.header {
+    background: #239148;
+    color: white;
+    padding: 15px;
+    text-align: center;
+    font-size: 20px;
+    font-weight: bold;
+}
+
+/* CONTAINER */
+.container {
+    max-width: 500px;
+    margin: 20px auto;
+}
+
+/* CARD */
+.card {
+    background: white;
+    padding: 15px;
+    border-radius: 12px;
+    margin-bottom: 15px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+
+h2 {
+    margin-top: 0;
+    text-align: center;
+}
+
+/* INPUTS */
+input, select {
+    width: 100%;
+    padding: 10px;
+    margin: 6px 0;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+}
+
+/* BOTÕES */
+button {
+    width: 100%;
+    padding: 12px;
+    margin-top: 8px;
+    border: none;
+    border-radius: 8px;
+    background: #239148;
+    color: white;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #1b7036;
+}
+
+/* LISTA */
+.item {
+    background: #f7f7f7;
+    padding: 10px;
+    border-radius: 8px;
+    margin-top: 10px;
+}
+
+/* TEXTO */
+.saldo {
+    text-align: center;
+    font-size: 18px;
+    font-weight: bold;
+    margin-top: 10px;
+}
+
+/* ESCONDER */
+.hidden {
+    display: none;
+}
+</style>
+</head>
+
+<body>
+
+<div class="header">Sistema de Controle de Horas</div>
+
+<!-- REGISTRO -->
+<div class="container" id="gestor">
+
+<div class="card">
+<h2>Registrar Horas</h2>
+
+<input id="nome" placeholder="Nome do colaborador">
+<input type="date" id="data">
+
+<label>Entrada</label>
+<input type="time" id="entrada">
+
+<label>Saída</label>
+<input type="time" id="saida">
+
+<input id="motivo" placeholder="Motivo">
+
+<select id="projeto"></select>
+
+<select id="tipo">
+<option value="banco">Banco de Horas</option>
+<option value="compensar">Compensação</option>
+</select>
+
+<button onclick="registrar()">Registrar</button>
+
+<button onclick="loginRH()">Acesso RH</button>
+
+</div>
+</div>
+
+<!-- RH -->
+<div class="container hidden" id="rh">
+
+<div class="card">
+<h2>Painel RH</h2>
+
+<input id="buscarNome" placeholder="Buscar colaborador" onkeyup="renderRH()">
+
+<input id="saldoManual" type="number" placeholder="Adicionar saldo manual">
+<button onclick="salvarSaldo()">Salvar saldo</button>
+
+<button onclick="exportar()">Excel Completo</button>
+<button onclick="exportarSaldo()">Excel - Saldo</button>
+
+<div id="lista"></div>
+
+<div class="saldo" id="saldoFinal"></div>
+
+<button onclick="voltar()">Voltar</button>
+
+</div>
+</div>
+
+<script>
+
+// PROJETOS AUTOMÁTICO
+let projetos = [
+"Aliança","Assu","AVT","Cesbe","Chimarrão","Delta","Duna","Edfy",
+"Eletrobras CHESF","Eletrosul","Engie","Éolicas Babilonia",
+"Esperanza","Evoltz","HRZ","JMM","Litoral Sul","Mantoqueira",
+"Odoya","Pampa","Sertaneja","Verde","Vineyards"
+];
+
+let select = document.getElementById("projeto");
+projetos.forEach(p=>{
+    let opt = document.createElement("option");
+    opt.text = p;
+    select.add(opt);
+});
+
+// BANCO
+let registros = JSON.parse(localStorage.getItem("registros")) || [];
+let saldos = JSON.parse(localStorage.getItem("saldos")) || {};
+
+// HORAS
+function calcularHoras(inicio,fim){
+ let [h1,m1]=inicio.split(":").map(Number);
+ let [h2,m2]=fim.split(":").map(Number);
+ let i=h1*60+m1;
+ let f=h2*60+m2;
+ if(f<i) f+=1440;
+ return ((f-i)/60).toFixed(2);
+}
+
+// REGISTRAR
+function registrar(){
+
+ let nome = document.getElementById("nome").value.trim();
+ let data = document.getElementById("data").value;
+ let entrada = document.getElementById("entrada").value;
+ let saida = document.getElementById("saida").value;
+
+ if(!nome||!data||!entrada||!saida){
+  alert("Preencha todos os campos!");
+  return;
+ }
+
+ registros.push({
+  nome,data,entrada,saida,
+  horas:calcularHoras(entrada,saida),
+  projeto:document.getElementById("projeto").value,
+  tipo:document.getElementById("tipo").value,
+  motivo:document.getElementById("motivo").value
+ });
+
+ localStorage.setItem("registros",JSON.stringify(registros));
+
+ alert("✅ Registro salvo!");
+
+ document.querySelectorAll("#gestor input").forEach(i=>i.value="");
+}
+
+// LOGIN RH
+function loginRH(){
+ let senha = prompt("Senha RH:");
+ if(senha && senha.trim()==="cymirh2026"){
+  document.getElementById("gestor").classList.add("hidden");
+  document.getElementById("rh").classList.remove("hidden");
+  renderRH();
+ }else{
+  alert("Senha incorreta!");
+ }
+}
+
+// SALDO
+function calcularSaldo(nome){
+ let total = saldos[nome] || 0;
+ registros.forEach(r=>{
+  if(r.nome.toLowerCase()===nome){
+   if(r.tipo==="banco") total+=parseFloat(r.horas);
+   else total-=parseFloat(r.horas);
+  }
+ });
+ return total;
+}
+
+// SALDO MANUAL
+function salvarSaldo(){
+ let nome = document.getElementById("buscarNome").value.toLowerCase().trim();
+ let valor = parseFloat(document.getElementById("saldoManual").value)||0;
+
+ if(!nome){ alert("Digite o nome"); return; }
+
+ saldos[nome] = (saldos[nome]||0)+valor;
+ localStorage.setItem("saldos",JSON.stringify(saldos));
+
+ alert("Saldo atualizado!");
+ renderRH();
+}
+
+// LISTA RH
+function renderRH(){
+ let filtro = document.getElementById("buscarNome").value.toLowerCase();
+ let lista = document.getElementById("lista");
+ lista.innerHTML="";
+
+ registros.forEach(r=>{
+  if(!filtro || r.nome.toLowerCase().includes(filtro)){
+
+   lista.innerHTML+=`
+   <div class="item">
+   <b>${r.nome}</b><br>
+   ${r.data} | ${r.entrada} - ${r.saida}<br>
+   ${r.horas} h<br>
+   <b>${r.projeto}</b><br>
+   ${r.tipo}<br>
+   ${r.motivo}
+   </div>`;
+  }
+ });
+
+ if(filtro){
+  document.getElementById("saldoFinal").innerText =
+  "Saldo Atual: "+calcularSaldo(filtro).toFixed(2)+" horas";
+ }
+}
+
+// EXPORTAR DETALHADO
+function exportar(){
+ let csv="\uFEFF";
+ csv+="Nome;Data;Entrada;Saida;Horas;Tipo;Projeto;Motivo\n";
+
+ registros.forEach(r=>{
+  csv+=`${r.nome};${r.data};${r.entrada};${r.saida};${r.horas};${r.tipo};${r.projeto};"${r.motivo}"\n`;
+ });
+
+ let blob=new Blob([csv]);
+ let link=document.createElement("a");
+ link.href=URL.createObjectURL(blob);
+ link.download="relatorio.csv";
+ link.click();
+}
+
+// EXPORTAR SALDO COM PROJETO
+function exportarSaldo(){
+
+ let saldosFinais={}, projetos={};
+
+ registros.forEach(r=>{
+  let n=r.nome.toLowerCase();
+  projetos[n]=r.projeto;
+
+  if(!saldosFinais[n]) saldosFinais[n]=saldos[n]||0;
+
+  if(r.tipo==="banco") saldosFinais[n]+=parseFloat(r.horas);
+  else saldosFinais[n]-=parseFloat(r.horas);
+ });
+
+ let csv="\uFEFF";
+ csv+="Nome;Projeto;Saldo\n";
+
+ for(let nome in saldosFinais){
+  csv+=`${nome};${projetos[nome]||"-"};${saldosFinais[nome].toFixed(2)}\n`;
+ }
+
+ let blob=new Blob([csv]);
+ let link=document.createElement("a");
+ link.href=URL.createObjectURL(blob);
+ link.download="saldo.csv";
+ link.click();
+}
+
+// VOLTAR
+function voltar(){
+ document.getElementById("rh").classList.add("hidden");
+ document.getElementById("gestor").classList.remove("hidden");
+}
+
+</script>
+
+</body>
+</html>
