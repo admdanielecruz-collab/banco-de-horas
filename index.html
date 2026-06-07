@@ -8,50 +8,18 @@
 <style>
 :root { --verde:#239148; }
 
-body{
-  font-family:"Segoe UI",Arial;
-  background:#eef2f5;
-  margin:0;
-}
+body{font-family:"Segoe UI",Arial;background:#eef2f5;margin:0;}
+header{background:var(--verde);color:#fff;padding:15px;text-align:center;font-weight:bold;}
 
-header{
-  background:var(--verde);
-  color:#fff;
-  padding:15px;
-  text-align:center;
-  font-weight:bold;
-}
-
-.tela{
-  display:none;
-  padding:15px;
-  max-width:500px;
-  margin:auto;
-}
-
-.card{
-  background:#fff;
-  padding:15px;
-  border-radius:12px;
-  margin-bottom:15px;
-  box-shadow:0 4px 10px rgba(0,0,0,.1);
-}
+.tela{display:none;padding:15px;max-width:500px;margin:auto;}
+.card{background:#fff;padding:15px;border-radius:12px;margin-top:15px;}
 
 input,select,button{
-  width:100%;
-  padding:12px;
-  margin-top:8px;
-  border-radius:8px;
-  border:1px solid #ccc;
+  width:100%;padding:10px;margin-top:8px;border-radius:8px;
 }
 
-button{
-  background:var(--verde);
-  color:#fff;
-  border:none;
-}
-
-.excluir{ background:#c0392b; }
+button{background:var(--verde);color:white;border:none;}
+.excluir{background:#c0392b;}
 </style>
 
 <script type="module">
@@ -60,7 +28,7 @@ import {
   getFirestore, collection, addDoc, getDocs, deleteDoc, doc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-/* FIREBASE CONFIG */
+/* FIREBASE */
 const firebaseConfig = {
   apiKey: "AIzaSyAMgb-lp7EVOSbCzi9z1V_R4-QJE7p5ZI8",
   authDomain: "banco-de-horas-aff08.firebaseapp.com",
@@ -73,36 +41,53 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-let usuarioLogado = null;
+/* VARIÁVEIS */
+let usuarioLogado=null;
 let projetos=["Aliança","Assu","AVT","Delta","Engie","Pampa"];
 
+/* INICIALIZAR */
+window.addEventListener("DOMContentLoaded",()=>{
+
+  mostrar("login");
+
+  ["rProjeto","aProjeto"].forEach(id=>{
+    let s=document.getElementById(id);
+    if(s){
+      projetos.forEach(p=>{
+        let o=document.createElement("option");
+        o.text=p;
+        s.add(o);
+      });
+    }
+  });
+
+  document.getElementById("btnSalvar").addEventListener("click", salvarRegistro);
+
+});
+
 /* TELAS */
-window.mostrar=(id)=>{
+window.mostrar=id=>{
   document.querySelectorAll(".tela").forEach(t=>t.style.display="none");
   document.getElementById(id).style.display="block";
 }
-mostrar("login");
 
 /* LOGIN */
 window.entrar=async()=>{
-  const snapshot = await getDocs(collection(db,"usuarios"));
-
-  let user=null;
+  const snapshot=await getDocs(collection(db,"usuarios"));
+  let achou=null;
 
   snapshot.forEach(d=>{
     let u=d.data();
     if(u.usuario===loginUser.value && u.senha===loginPass.value){
-      user=u;
+      achou=u;
     }
   });
 
-  if(user){
-    usuarioLogado=user;
-    montarMenu();
-    mostrar("menu");
-  }else{
-    alert("Login inválido");
-  }
+  if(!achou){alert("Login inválido");return;}
+
+  usuarioLogado=achou;
+  montarMenu();
+  mostrar("menu");
 }
 
 /* MENU */
@@ -110,36 +95,22 @@ window.montarMenu=()=>{
   menu.innerHTML="<h3>Menu</h3>";
 
   menu.innerHTML+=`<button onclick="mostrar('registro')">Registrar</button>`;
-  menu.innerHTML+=`<button onclick="mostrar('registros'); listar();">Registros</button>`;
+  menu.innerHTML+=`<button onclick="mostrar('registros'); listar()">Registros</button>`;
   menu.innerHTML+=`<button onclick="mostrar('relatorios')">Relatórios</button>`;
 
   if(usuarioLogado.perfil==="rh"){
-    menu.innerHTML+=`<button onclick="mostrar('ajuste')">Ajustar Saldo</button>`;
+    menu.innerHTML+=`<button onclick="mostrar('ajuste')">Ajuste de saldo</button>`;
     menu.innerHTML+=`<button onclick="mostrar('usuarios')">Usuários</button>`;
   }
 
   menu.innerHTML+=`<button onclick="location.reload()">Sair</button>`;
 }
 
-/* CARREGAR PROJETOS */
-window.addEventListener("load",()=>{
-  ["rProjeto","aProjeto"].forEach(id=>{
-    let s=document.getElementById(id);
-    if(!s) return;
-
-    projetos.forEach(p=>{
-      let o=document.createElement("option");
-      o.text=p;
-      s.add(o);
-    });
-  });
-});
-
-/* ✅ REGISTRAR */
+/* REGISTRO */
 async function salvarRegistro(){
 
-  if(!rNome.value || !rData.value || !rEntrada.value || !rSaida.value){
-    alert("Preencha todos os campos");
+  if(!rNome.value || !rData.value){
+    alert("Preencha os campos");
     return;
   }
 
@@ -159,24 +130,12 @@ async function salvarRegistro(){
     motivo:rMotivo.value
   });
 
-  alert("Salvo ✅");
+  alert("Registro salvo ✅");
 
-  rNome.value="";
-  rData.value="";
-  rEntrada.value="";
-  rSaida.value="";
-  rMotivo.value="";
+  rNome.value="";rData.value="";rEntrada.value="";rSaida.value="";rMotivo.value="";
 }
 
-/* BOTÃO SALVAR */
-window.addEventListener("load",()=>{
-  let btn=document.getElementById("btnSalvar");
-  if(btn){
-    btn.addEventListener("click",salvarRegistro);
-  }
-});
-
-/* LISTAR */
+/* LISTAR + SALDO + FILTRO */
 window.listar=async()=>{
   listaRegistros.innerHTML="";
   let filtro=filtroNome.value.toLowerCase();
@@ -206,8 +165,8 @@ window.listar=async()=>{
 }
 
 /* EXCLUIR */
-window.excluirRegistro=async(id)=>{
-  if(confirm("Excluir?")){
+window.excluirRegistro=async id=>{
+  if(confirm("Excluir registro?")){
     await deleteDoc(doc(db,"registros",id));
     listar();
   }
@@ -216,13 +175,7 @@ window.excluirRegistro=async(id)=>{
 /* AJUSTE */
 window.ajustarSaldo=async()=>{
   let horas=parseFloat(aHoras.value);
-
-  if(!aNome.value || isNaN(horas)){
-    alert("Preencha corretamente");
-    return;
-  }
-
-  let tipo= horas>=0 ? "banco" : "compensar";
+  let tipo= horas>=0?"banco":"compensar";
 
   await addDoc(collection(db,"registros"),{
     nome:aNome.value,
@@ -240,11 +193,6 @@ window.ajustarSaldo=async()=>{
 
 /* USUÁRIOS */
 window.cadastrarUsuario=async()=>{
-  if(!uNome.value || !uSenha.value){
-    alert("Preencha");
-    return;
-  }
-
   await addDoc(collection(db,"usuarios"),{
     usuario:uNome.value,
     senha:uSenha.value,
@@ -309,7 +257,6 @@ function downloadCSV(csv,nome){
 }
 
 window.voltarMenu=()=>mostrar("menu");
-
 </script>
 </head>
 
@@ -319,7 +266,7 @@ window.voltarMenu=()=>mostrar("menu");
 
 <div id="login" class="tela card">
 <h3>Login</h3>
-<input id="loginUser" placeholder="Usuário">
+<input id="loginUser">
 <input id="loginPass" type="password">
 <button onclick="entrar()">Entrar</button>
 </div>
@@ -328,11 +275,11 @@ window.voltarMenu=()=>mostrar("menu");
 
 <div id="registro" class="tela card">
 <h3>Registrar</h3>
-<input id="rNome" placeholder="Colaborador">
+<input id="rNome">
 <input type="date" id="rData">
 <input type="time" id="rEntrada">
 <input type="time" id="rSaida">
-<input id="rMotivo" placeholder="Motivo">
+<input id="rMotivo">
 <select id="rProjeto"></select>
 <select id="rTipo">
 <option value="banco">Banco</option>
@@ -343,22 +290,19 @@ window.voltarMenu=()=>mostrar("menu");
 </div>
 
 <div id="registros" class="tela card">
-<h3>Registros</h3>
-<input id="filtroNome" oninput="listar()">
+<input id="filtroNome" placeholder="Filtrar colaborador" oninput="listar()">
 <div>Saldo: <span id="saldoColaborador">0</span></div>
 <div id="listaRegistros"></div>
 <button onclick="voltarMenu()">Voltar</button>
 </div>
 
 <div id="relatorios" class="tela card">
-<h3>Relatórios</h3>
 <button onclick="exportarDetalhado()">Excel Detalhado</button>
 <button onclick="exportarSaldo()">Excel Saldo</button>
 <button onclick="voltarMenu()">Voltar</button>
 </div>
 
 <div id="ajuste" class="tela card">
-<h3>Ajuste</h3>
 <input id="aNome">
 <select id="aProjeto"></select>
 <input type="number" id="aHoras">
@@ -367,7 +311,6 @@ window.voltarMenu=()=>mostrar("menu");
 </div>
 
 <div id="usuarios" class="tela card">
-<h3>Usuários</h3>
 <input id="uNome">
 <input id="uSenha">
 <select id="uPerfil">
