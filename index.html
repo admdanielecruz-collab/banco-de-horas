@@ -60,6 +60,7 @@ import {
   getFirestore, collection, addDoc, getDocs, deleteDoc, doc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
+/* FIREBASE CONFIG */
 const firebaseConfig = {
   apiKey: "AIzaSyAMgb-lp7EVOSbCzi9z1V_R4-QJE7p5ZI8",
   authDomain: "banco-de-horas-aff08.firebaseapp.com",
@@ -72,7 +73,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-let usuarioLogado=null;
+let usuarioLogado = null;
 let projetos=["Aliança","Assu","AVT","Delta","Engie","Pampa"];
 
 /* TELAS */
@@ -82,24 +83,21 @@ window.mostrar=(id)=>{
 }
 mostrar("login");
 
-/* LOGIN REAL */
-window.entrar=async function(){
-  let user=loginUser.value;
-  let pass=loginPass.value;
+/* LOGIN */
+window.entrar=async()=>{
+  const snapshot = await getDocs(collection(db,"usuarios"));
 
-  const snapshot=await getDocs(collection(db,"usuarios"));
+  let user=null;
 
-  let logado=null;
-
-  snapshot.forEach(doc=>{
-    let u=doc.data();
-    if(u.usuario===user && u.senha===pass){
-      logado=u;
+  snapshot.forEach(d=>{
+    let u=d.data();
+    if(u.usuario===loginUser.value && u.senha===loginPass.value){
+      user=u;
     }
   });
 
-  if(logado){
-    usuarioLogado=logado;
+  if(user){
+    usuarioLogado=user;
     montarMenu();
     mostrar("menu");
   }else{
@@ -108,38 +106,46 @@ window.entrar=async function(){
 }
 
 /* MENU */
-window.montarMenu=function(){
-  let m=menu;
-  m.innerHTML="<h3>Menu</h3>";
+window.montarMenu=()=>{
+  menu.innerHTML="<h3>Menu</h3>";
 
-  m.innerHTML+=`<button onclick="mostrar('registro')">Registrar</button>`;
-  m.innerHTML+=`<button onclick="mostrar('registros'); listar();">Registros</button>`;
-  m.innerHTML+=`<button onclick="mostrar('relatorios')">Relatórios</button>`;
+  menu.innerHTML+=`<button onclick="mostrar('registro')">Registrar</button>`;
+  menu.innerHTML+=`<button onclick="mostrar('registros'); listar();">Registros</button>`;
+  menu.innerHTML+=`<button onclick="mostrar('relatorios')">Relatórios</button>`;
 
   if(usuarioLogado.perfil==="rh"){
-    m.innerHTML+=`<button onclick="mostrar('ajuste')">Ajustar Saldo</button>`;
-    m.innerHTML+=`<button onclick="mostrar('usuarios')">Usuários</button>`;
+    menu.innerHTML+=`<button onclick="mostrar('ajuste')">Ajustar Saldo</button>`;
+    menu.innerHTML+=`<button onclick="mostrar('usuarios')">Usuários</button>`;
   }
 
-  m.innerHTML+=`<button onclick="location.reload()">Sair</button>`;
+  menu.innerHTML+=`<button onclick="location.reload()">Sair</button>`;
 }
 
-/* PROJETOS */
-window.onload=()=>{
+/* CARREGAR PROJETOS */
+window.addEventListener("load",()=>{
   ["rProjeto","aProjeto"].forEach(id=>{
     let s=document.getElementById(id);
+    if(!s) return;
+
     projetos.forEach(p=>{
       let o=document.createElement("option");
       o.text=p;
       s.add(o);
     });
   });
-}
+});
 
-/* REGISTRAR */
-window.registrar=async function(){
-  let h=(new Date("1970-1-1 "+rSaida.value)-
+/* ✅ REGISTRAR */
+async function salvarRegistro(){
+
+  if(!rNome.value || !rData.value || !rEntrada.value || !rSaida.value){
+    alert("Preencha todos os campos");
+    return;
+  }
+
+  let h=(new Date("1970-1-1 "+rSaida.value) -
          new Date("1970-1-1 "+rEntrada.value))/3600000;
+
   if(h<0)h+=24;
 
   await addDoc(collection(db,"registros"),{
@@ -153,11 +159,25 @@ window.registrar=async function(){
     motivo:rMotivo.value
   });
 
-  alert("Registro salvo ✅");
+  alert("Salvo ✅");
+
+  rNome.value="";
+  rData.value="";
+  rEntrada.value="";
+  rSaida.value="";
+  rMotivo.value="";
 }
 
+/* BOTÃO SALVAR */
+window.addEventListener("load",()=>{
+  let btn=document.getElementById("btnSalvar");
+  if(btn){
+    btn.addEventListener("click",salvarRegistro);
+  }
+});
+
 /* LISTAR */
-window.listar=async function(){
+window.listar=async()=>{
   listaRegistros.innerHTML="";
   let filtro=filtroNome.value.toLowerCase();
   let saldo=0;
@@ -186,18 +206,23 @@ window.listar=async function(){
 }
 
 /* EXCLUIR */
-window.excluirRegistro=async function(id){
-  if(confirm("Excluir registro?")){
+window.excluirRegistro=async(id)=>{
+  if(confirm("Excluir?")){
     await deleteDoc(doc(db,"registros",id));
     listar();
   }
 }
 
-/* ✅ AJUSTE CORRETO */
-window.ajustarSaldo=async function(){
+/* AJUSTE */
+window.ajustarSaldo=async()=>{
   let horas=parseFloat(aHoras.value);
 
-  let tipo = horas >= 0 ? "banco" : "compensar";
+  if(!aNome.value || isNaN(horas)){
+    alert("Preencha corretamente");
+    return;
+  }
+
+  let tipo= horas>=0 ? "banco" : "compensar";
 
   await addDoc(collection(db,"registros"),{
     nome:aNome.value,
@@ -213,8 +238,12 @@ window.ajustarSaldo=async function(){
   alert("Ajuste aplicado ✅");
 }
 
-/* ✅ USUÁRIOS REAL */
-window.cadastrarUsuario=async function(){
+/* USUÁRIOS */
+window.cadastrarUsuario=async()=>{
+  if(!uNome.value || !uSenha.value){
+    alert("Preencha");
+    return;
+  }
 
   await addDoc(collection(db,"usuarios"),{
     usuario:uNome.value,
@@ -226,10 +255,11 @@ window.cadastrarUsuario=async function(){
 }
 
 /* RELATÓRIOS */
-window.exportarDetalhado=async function(){
+window.exportarDetalhado=async()=>{
   let filtro=prompt("Filtrar colaborador")?.toLowerCase();
 
   const snapshot=await getDocs(collection(db,"registros"));
+
   let csv="Colaborador;Data;Entrada;Saida;Horas;Projeto;Tipo;Motivo\n";
 
   snapshot.forEach(d=>{
@@ -242,14 +272,16 @@ window.exportarDetalhado=async function(){
   downloadCSV(csv,"detalhado.csv");
 }
 
-window.exportarSaldo=async function(){
+window.exportarSaldo=async()=>{
   let filtro=prompt("Filtrar colaborador")?.toLowerCase();
 
   const snapshot=await getDocs(collection(db,"registros"));
+
   let saldo={};
 
   snapshot.forEach(d=>{
     let r=d.data();
+
     if(filtro && !r.nome.toLowerCase().includes(filtro)) return;
 
     if(!saldo[r.nome]) saldo[r.nome]=0;
@@ -267,6 +299,7 @@ window.exportarSaldo=async function(){
   downloadCSV(csv,"saldo.csv");
 }
 
+/* DOWNLOAD */
 function downloadCSV(csv,nome){
   let blob=new Blob(["\ufeff"+csv],{type:"text/csv"});
   let link=document.createElement("a");
@@ -295,17 +328,17 @@ window.voltarMenu=()=>mostrar("menu");
 
 <div id="registro" class="tela card">
 <h3>Registrar</h3>
-<input id="rNome">
+<input id="rNome" placeholder="Colaborador">
 <input type="date" id="rData">
 <input type="time" id="rEntrada">
 <input type="time" id="rSaida">
-<input id="rMotivo">
+<input id="rMotivo" placeholder="Motivo">
 <select id="rProjeto"></select>
 <select id="rTipo">
 <option value="banco">Banco</option>
 <option value="compensar">Compensar</option>
 </select>
-<button onclick="registrar()">Salvar</button>
+<button id="btnSalvar">Salvar</button>
 <button onclick="voltarMenu()">Voltar</button>
 </div>
 
@@ -325,18 +358,18 @@ window.voltarMenu=()=>mostrar("menu");
 </div>
 
 <div id="ajuste" class="tela card">
-<h3>Ajuste de Saldo</h3>
-<input id="aNome" placeholder="Colaborador">
+<h3>Ajuste</h3>
+<input id="aNome">
 <select id="aProjeto"></select>
-<input type="number" id="aHoras" placeholder="+ ou - horas">
+<input type="number" id="aHoras">
 <button onclick="ajustarSaldo()">Aplicar</button>
 <button onclick="voltarMenu()">Voltar</button>
 </div>
 
 <div id="usuarios" class="tela card">
 <h3>Usuários</h3>
-<input id="uNome" placeholder="Usuário">
-<input id="uSenha" placeholder="Senha">
+<input id="uNome">
+<input id="uSenha">
 <select id="uPerfil">
 <option value="gestor">Gestor</option>
 <option value="rh">RH</option>
