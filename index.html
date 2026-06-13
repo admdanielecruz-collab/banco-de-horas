@@ -2,41 +2,69 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Banco de Horas</title>
+<title>Banco de Horas – Sistema Profissional</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- ✅ CHART.JS CORRETO -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
+:root{--verde:#239148}
 body{font-family:Arial;background:#eef2f5;margin:0}
-header{background:#239148;color:#fff;padding:15px;text-align:center}
-.tela{display:none;padding:15px;max-width:500px;margin:auto}
-.card{background:#fff;padding:15px;border-radius:10px;margin-top:15px}
+header{background:var(--verde);color:#fff;padding:15px;text-align:center;font-weight:bold}
+
+.tela{display:none;padding:15px;max-width:700px;margin:auto}
+.card{background:#fff;padding:15px;border-radius:12px;margin-top:15px;box-shadow:0 4px 10px rgba(0,0,0,.1)}
+
 input,select,button{
 width:100%;padding:10px;margin-top:8px;border-radius:8px;border:1px solid #ccc
 }
-button{background:#239148;color:#fff;border:none}
-.excluir{background:red}
-.item{background:#f2f2f2;padding:10px;margin-top:10px;border-radius:8px}
+button{background:var(--verde);color:#fff;border:none}
+.excluir{background:#c0392b;margin-top:6px}
+
+.item{background:#f7f7f7;padding:10px;border-radius:8px;margin-top:10px}
+
+.dashboard{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.box{background:#fff;padding:15px;border-radius:10px;text-align:center;font-weight:bold}
+
 .msg{
 position:fixed;bottom:20px;left:50%;
 transform:translateX(-50%);
-color:#fff;padding:10px 20px;border-radius:8px;display:none;
+padding:10px 20px;border-radius:8px;color:#fff;
+display:none;z-index:999
 }
 </style>
 </head>
 
 <body>
 
-<header>Banco de Horas</header>
+<header>Banco de Horas – Sistema Profissional</header>
 <div id="msg" class="msg"></div>
 
+<!-- LOGIN -->
 <div id="login" class="tela card">
+<h3>Login</h3>
 <input id="loginUser" placeholder="Usuário">
 <input id="loginPass" type="password" placeholder="Senha">
-<button id="btnEntrar">Entrar</button>
+<button onclick="entrar()">Entrar</button>
 </div>
 
+<!-- MENU -->
 <div id="menu" class="tela card"></div>
 
+<!-- DASHBOARD -->
+<div id="dashboard" class="tela">
+<div class="dashboard">
+<div class="box">Saldo Total<br><span id="saldoTotal">0</span></div>
+<div class="box">Total Registros<br><span id="totalReg">0</span></div>
+</div>
+<canvas id="graficoHoras"></canvas>
+<button onclick="mostrar('menu')">Voltar</button>
+</div>
+
+<!-- REGISTRO -->
 <div id="registro" class="tela card">
+<h3>Registrar</h3>
 <input id="rNome" placeholder="Colaborador">
 <input type="date" id="rData">
 <input type="time" id="rEntrada">
@@ -47,31 +75,40 @@ color:#fff;padding:10px 20px;border-radius:8px;display:none;
 <option value="banco">Banco</option>
 <option value="compensar">Compensar</option>
 </select>
-<button id="btnSalvar">Salvar</button>
+<button onclick="registrar()">Salvar</button>
 <button onclick="mostrar('menu')">Voltar</button>
 </div>
 
+<!-- REGISTROS -->
 <div id="registros" class="tela card">
-<input id="filtroNome" placeholder="Filtrar colaborador">
+<h3>Registros</h3>
+<input id="filtroNome" placeholder="Filtrar colaborador" oninput="renderizar()">
 <div>Saldo: <span id="saldoColaborador">0</span></div>
 <div id="listaRegistros"></div>
 <button onclick="mostrar('menu')">Voltar</button>
 </div>
 
+<!-- RELATÓRIOS -->
 <div id="relatorios" class="tela card">
-<button onclick="exportarDetalhado()">Detalhado</button>
-<button onclick="exportarSaldo()">Saldo</button>
+<h3>Relatórios</h3>
+<button onclick="exportarDetalhado()">Excel Detalhado</button>
+<button onclick="exportarSaldo()">Excel Saldo</button>
 <button onclick="mostrar('menu')">Voltar</button>
 </div>
 
+<!-- AJUSTE -->
 <div id="ajuste" class="tela card">
+<h3>Ajuste de Saldo</h3>
 <input id="aNome" placeholder="Colaborador">
-<input id="aHoras" type="number" placeholder="Horas (+/-)">
+<select id="aProjeto"></select>
+<input id="aHoras" type="number" placeholder="+ ou - horas">
 <button onclick="ajustarSaldo()">Aplicar</button>
 <button onclick="mostrar('menu')">Voltar</button>
 </div>
 
+<!-- USUÁRIOS -->
 <div id="usuarios" class="tela card">
+<h3>Usuários</h3>
 <input id="uNome" placeholder="Usuário">
 <input id="uSenha" placeholder="Senha">
 <select id="uPerfil">
@@ -83,263 +120,181 @@ color:#fff;padding:10px 20px;border-radius:8px;display:none;
 </div>
 
 <script type="module">
-
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import {
-getFirestore, collection, addDoc, getDocs,
-deleteDoc, doc, onSnapshot
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot } 
+from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
+/* FIREBASE */
 const app = initializeApp({
- apiKey:"SUA_API",
- authDomain:"SEU_DOMINIO",
- projectId:"SEU_ID"
+ apiKey:"AIzaSyAMgb-lp7EVOSbCzi9z1V_R4-QJE7p5ZI8",
+ authDomain:"banco-de-horas-aff08.firebaseapp.com",
+ projectId:"banco-de-horas-aff08"
 });
+const db = getFirestore(app);
 
-const db=getFirestore(app);
-
-let unsubscribe=null;
+/* VARIÁVEIS */
+let registros=[], grafico=null;
 let projetos=["Aliança","Assu","AVT","Delta","Engie","Pampa"];
 
-/* INIT */
-document.addEventListener("DOMContentLoaded",()=>{
-
-mostrar("login");
-
-btnEntrar.onclick=entrar;
-btnSalvar.onclick=registrar;
-filtroNome.oninput=listar;
-
-projetos.forEach(p=>{
- let o=document.createElement("option");
- o.text=p;
- rProjeto.add(o);
-});
-
-});
-
-/* UI */
+/* MENSAGEM */
 function msg(t,tipo="ok"){
- let m=document.getElementById("msg");
+ const m=document.getElementById("msg");
  m.innerText=t;
+ m.style.background = tipo=="erro"?"#c0392b":tipo=="load"?"#000":"#239148";
  m.style.display="block";
- m.style.background = tipo=="erro"?"#c0392b":
-                      tipo=="load"?"#000":"#239148";
  setTimeout(()=>m.style.display="none",2000);
 }
 
-function mostrar(id){
-document.querySelectorAll(".tela").forEach(t=>t.style.display="none");
-document.getElementById(id).style.display="block";
-}
+/* TELAS */
+window.mostrar=id=>{
+ document.querySelectorAll(".tela").forEach(t=>t.style.display="none");
+ document.getElementById(id).style.display="block";
+};
 
-/* LOGIN */
-function entrar(){
-if(loginUser.value==="rh" && loginPass.value==="cymirh2026"){
- montarMenu();
- mostrar("menu");
-}else{
- msg("Login inválido","erro");
-}
-}
+/* LOGIN FIXO */
+window.entrar=()=>{
+ if(loginUser.value.toLowerCase()=="rh" && loginPass.value=="cymirh2026"){
+   montarMenu();
+   mostrar("menu");
+   msg("✅ Login realizado");
+ }else{
+   msg("❌ Login inválido","erro");
+ }
+};
 
 /* MENU */
 function montarMenu(){
-menu.innerHTML=`
-<h3>Menu</h3>
-<button onclick="mostrar('registro')">Registrar</button>
-<button onclick="abrirRegistros()">Registros</button>
-<button onclick="mostrar('relatorios')">Relatórios</button>
-<button onclick="mostrar('ajuste')">Ajuste</button>
-<button onclick="mostrar('usuarios')">Usuários</button>
-<button onclick="location.reload()">Sair</button>`;
+ menu.innerHTML=`
+ <button onclick="mostrar('dashboard')">Dashboard</button>
+ <button onclick="mostrar('registro')">Registrar</button>
+ <button onclick="mostrar('registros')">Registros</button>
+ <button onclick="mostrar('relatorios')">Relatórios</button>
+ <button onclick="mostrar('ajuste')">Ajuste</button>
+ <button onclick="mostrar('usuarios')">Usuários</button>
+ <button onclick="location.reload()">Sair</button>`;
 }
 
-/* REGISTRAR */
-async function registrar(){
-
-if(!rNome.value || !rData.value || !rEntrada.value || !rSaida.value){
- msg("Preencha todos os campos","erro");
- return;
-}
-
-if(!confirm("Confirmar registro?")) return;
-
-msg("Salvando...","load");
-
-let h=(new Date("1970 "+rSaida.value)-
-       new Date("1970 "+rEntrada.value))/3600000;
-if(h<0)h+=24;
-
-await addDoc(collection(db,"registros"),{
- nome:rNome.value,
- data:rData.value,
- entrada:rEntrada.value,
- saida:rSaida.value,
- horas:h,
- projeto:rProjeto.value,
- tipo:rTipo.value,
- motivo:rMotivo.value
+/* PROJETOS */
+["rProjeto","aProjeto"].forEach(id=>{
+ let s=document.getElementById(id);
+ projetos.forEach(p=>{
+  let o=document.createElement("option");
+  o.text=p;
+  s.add(o);
+ });
 });
 
-msg("✅ Registro salvo");
+/* TEMPO REAL */
+onSnapshot(collection(db,"registros"), snap=>{
+ registros=[];
+ snap.forEach(d=>registros.push({id:d.id,...d.data()}));
+ renderizar();
+});
 
-rNome.value="";
-rEntrada.value="";
-rSaida.value="";
-rMotivo.value="";
-}
+/* RENDER */
+function renderizar(){
+ let lista="", saldo=0, mapa={};
+ let f=filtroNome?.value?.toLowerCase()||"";
 
-/* LISTAR (TEMPO REAL) */
-function listar(){
-
-if(unsubscribe) unsubscribe();
-
-unsubscribe = onSnapshot(collection(db,"registros"),(snap)=>{
-
- listaRegistros.innerHTML="";
- let saldo=0;
- let f=filtroNome.value?.toLowerCase() || "";
-
- snap.forEach(d=>{
-  let r=d.data();
-
+ registros.forEach(r=>{
   if(f && !r.nome.toLowerCase().includes(f)) return;
+  saldo += r.tipo=="banco"?r.horas:-r.horas;
+  mapa[r.nome]=(mapa[r.nome]||0)+(r.tipo=="banco"?r.horas:-r.horas);
 
-  if(r.tipo==="banco") saldo+=r.horas;
-  if(r.tipo==="compensar") saldo-=r.horas;
-
-  listaRegistros.innerHTML+=`
-  <div class="item" id="item-${d.id}">
-  <b>${r.nome}</b><br>
-  ${r.data} ${r.entrada}-${r.saida}<br>
-  ${r.horas.toFixed(2)}h
-  <button class="excluir" onclick="excluir('${d.id}')">Excluir</button>
+  lista+=`
+  <div class="item">
+   <b>${r.nome}</b><br>
+   ${r.data} ${r.entrada}-${r.saida} (${r.horas.toFixed(2)}h)<br>
+   ${r.projeto}<br>
+   <small>${r.motivo}</small>
+   <button class="excluir" onclick="excluir('${r.id}')">Excluir</button>
   </div>`;
  });
 
+ listaRegistros.innerHTML=lista;
  saldoColaborador.innerText=saldo.toFixed(2);
+ saldoTotal.innerText=saldo.toFixed(2);
+ totalReg.innerText=registros.length;
 
-});
+ if(grafico) grafico.destroy();
+ grafico=new Chart(document.getElementById("graficoHoras"),{
+  type:"bar",
+  data:{labels:Object.keys(mapa),
+  datasets:[{label:"Saldo (h)",data:Object.values(mapa)}]}
+ });
 }
 
-function abrirRegistros(){
-mostrar("registros");
-listar();
-}
+/* REGISTRAR */
+window.registrar=async()=>{
+ msg("Salvando...","load");
+ let h=(new Date("1970 "+rSaida.value)-new Date("1970 "+rEntrada.value))/3600000;
+ if(h<0)h+=24;
+ await addDoc(collection(db,"registros"),{
+  nome:rNome.value,data:rData.value,entrada:rEntrada.value,saida:rSaida.value,
+  horas:h,projeto:rProjeto.value,tipo:rTipo.value,motivo:rMotivo.value
+ });
+ msg("✅ Registro salvo");
+};
 
 /* EXCLUIR */
-async function excluir(id){
-
-if(!confirm("Excluir registro?")) return;
-
-let el=document.getElementById("item-"+id);
-if(el) el.remove();
-
-try{
+window.excluir=async id=>{
+ msg("Excluindo...","load");
  await deleteDoc(doc(db,"registros",id));
  msg("✅ Excluído");
-}catch{
- msg("Erro ao excluir","erro");
- listar();
-}
-}
+};
 
 /* AJUSTE */
-async function ajustarSaldo(){
-
-if(!aNome.value || aHoras.value===""){
- msg("Preencha os campos","erro");
- return;
-}
-
-let horas=parseFloat(aHoras.value);
-let tipo=horas>=0?"banco":"compensar";
-
-await addDoc(collection(db,"registros"),{
- nome:aNome.value,
- data:new Date().toISOString().split("T")[0],
- entrada:"00:00",
- saida:"00:00",
- horas:Math.abs(horas),
- tipo:tipo
-});
-
-msg("✅ Ajuste aplicado");
-}
+window.ajustarSaldo=async()=>{
+ msg("Aplicando ajuste","load");
+ let h=parseFloat(aHoras.value);
+ await addDoc(collection(db,"registros"),{
+  nome:aNome.value,data:new Date().toISOString().split("T")[0],
+  entrada:"00:00",saida:"00:00",
+  horas:Math.abs(h),projeto:aProjeto.value,
+  tipo:h>=0?"banco":"compensar",motivo:"Ajuste manual"
+ });
+ msg("✅ Ajuste aplicado");
+};
 
 /* USUÁRIOS */
-async function cadastrarUsuario(){
-
-if(!uNome.value || !uSenha.value){
- msg("Preencha usuário e senha","erro");
- return;
-}
-
-await addDoc(collection(db,"usuarios"),{
- usuario:uNome.value,
- senha:uSenha.value,
- perfil:uPerfil.value
-});
-
-msg("✅ Usuário cadastrado");
-}
+window.cadastrarUsuario=async()=>{
+ await addDoc(collection(db,"usuarios"),{
+  usuario:uNome.value,senha:uSenha.value,perfil:uPerfil.value
+ });
+ msg("✅ Usuário cadastrado");
+};
 
 /* RELATÓRIOS */
-async function exportarDetalhado(){
-
-let csv="Nome;Data;Horas\n";
-let snap=await getDocs(collection(db,"registros"));
-
-snap.forEach(d=>{
- let r=d.data();
- csv+=`${r.nome};${r.data};${r.horas}\n`;
-});
-
-download(csv,"detalhado.csv");
+function downloadCSV(csv,n){
+ let b=new Blob(["\ufeff"+csv]);
+ let a=document.createElement("a");
+ a.href=URL.createObjectURL(b);
+ a.download=n;a.click();
 }
 
-async function exportarSaldo(){
+window.exportarDetalhado=()=>{
+ let f=prompt("Filtrar colaborador (vazio=todos)")?.toLowerCase();
+ let csv="Nome;Data;Entrada;Saida;Horas;Projeto;Tipo;Motivo\n";
+ registros.forEach(r=>{
+  if(f && !r.nome.toLowerCase().includes(f)) return;
+  csv+=`${r.nome};${r.data};${r.entrada};${r.saida};${r.horas};${r.projeto};${r.tipo};${r.motivo}\n`;
+ });
+ downloadCSV(csv,"detalhado.csv");
+};
 
-let saldo={};
-let snap=await getDocs(collection(db,"registros"));
+window.exportarSaldo=()=>{
+ let mapa={};
+ registros.forEach(r=>{
+  mapa[r.nome]=(mapa[r.nome]||0)+(r.tipo=="banco"?r.horas:-r.horas);
+ });
+ let csv="Nome;Saldo\n";
+ for(let n in mapa) csv+=`${n};${mapa[n].toFixed(2)}\n`;
+ downloadCSV(csv,"saldo.csv");
+};
 
-snap.forEach(d=>{
- let r=d.data();
-
- if(!saldo[r.nome]) saldo[r.nome]=0;
-
- if(r.tipo==="banco") saldo[r.nome]+=r.horas;
- if(r.tipo==="compensar") saldo[r.nome]-=r.horas;
-});
-
-let csv="Nome;Saldo\n";
-
-for(let n in saldo){
- csv+=`${n};${saldo[n].toFixed(2)}\n`;
-}
-
-download(csv,"saldo.csv");
-}
-
-/* DOWNLOAD */
-function download(csv,n){
-let b=new Blob(["\ufeff"+csv]);
-let a=document.createElement("a");
-a.href=URL.createObjectURL(b);
-a.download=n;
-a.click();
-}
-
-/* 🔥 CORREÇÃO DOS BOTÕES */
-window.mostrar = mostrar;
-window.abrirRegistros = abrirRegistros;
-window.excluir = excluir;
-window.ajustarSaldo = ajustarSaldo;
-window.cadastrarUsuario = cadastrarUsuario;
-window.exportarDetalhado = exportarDetalhado;
-window.exportarSaldo = exportarSaldo;
-
+/* INICIAL */
+window.onload=()=>mostrar("login");
 </script>
+
 </body>
 </html>
